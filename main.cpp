@@ -37,9 +37,6 @@
 namespace asio = boost::asio; // from <boost/asio/context.hpp>
 //namespace ssl  = asio::ssl;   // from <boost/asio/ssl.hpp>
 
-static const std::string c_sHost( "api.telegram.org" );
-static const std::string c_sPort( "443" );
-
 int main(int argc, char **argv) {
 
   std::string sConfigFilename( "viessmann.cfg" );
@@ -65,11 +62,16 @@ int main(int argc, char **argv) {
 
   auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_io ), m_ssl_context );
   request->get(
-      c_sHost, c_sPort
-    , "/url/command"
+      choices.sAuthFQDN
+    , choices.sAuthPort
+    , choices.sAuthPath
     , []( bool bStatus, int ec, const std::string& message ){
         BOOST_LOG_TRIVIAL(info) << "status=" << bStatus << ", message=" << message;
         if ( bStatus ) {
+          // next step
+        }
+        else {
+          // fail
         }
       }
     );

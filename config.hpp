@@ -29,13 +29,15 @@ namespace config {
 
 struct Values {
 
+  std::string sAuthFQDN;
+  std::string sAuthPort;
+  std::string sAuthPath;
+
   uint16_t nPortManagement;
   uint16_t nPortRedirect;
 
-  std::string sUrlAuthentication;
   std::string sUrlApi;
-
-  //std::string sListenAddress;
+  std::string sUrlRedirect;
 
 };
 

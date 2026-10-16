@@ -33,11 +33,15 @@ namespace po = boost::program_options;
 namespace {
 
 
+  static const std::string sValue_Authentication_FQDN( "auth_fqdn" );
+  static const std::string sValue_Authentication_Port( "auth_port" );
+  static const std::string sValue_Authentication_Path( "auth_path" );
+
   static const std::string sValue_Port_Management(  "port_mgmt" );
   static const std::string sValue_Port_Redirect( "port_redirect" );
 
-  static const std::string sValue_Url_Authentication( "url_auth" );
   static const std::string sValue_Url_Api( "url_api" );
+  static const std::string sValue_Url_Redirect( "url_redirect" );
 
   //static const std::string sValue_listen_address( "listen_address" );
 
@@ -81,13 +85,15 @@ bool Load( const std::string& sFileName, Values& values ) {
     po::options_description config( "web.boost config file" );
     config.add_options()
 
+      ( sValue_Authentication_FQDN.c_str(), po::value<std::string>( &values.sAuthFQDN ), "authentication fqdn" )
+      ( sValue_Authentication_Port.c_str(), po::value<std::string>( &values.sAuthPort ), "authentication port" )
+      ( sValue_Authentication_Path.c_str(), po::value<std::string>( &values.sAuthPath ), "authentication path" )
+
       ( sValue_Port_Management.c_str(), po::value<uint16_t>( &values.nPortManagement )->default_value( 8087 ), "management port" )
       ( sValue_Port_Redirect.c_str(), po::value<uint16_t>( &values.nPortRedirect )->default_value( 4200 ), "redirect port" )
 
-      //( sValue_listen_address.c_str(), po::value<std::string>( &values.sListenAddress )->default_value( "0.0.0.0" ), "listen address" )
-
-      ( sValue_Url_Authentication.c_str(), po::value<std::string>( &values.sUrlAuthentication ), "url to start authentcation" )
-      ( sValue_Url_Api.c_str(), po::value<std::string>( &values.sUrlApi ), "redirect with token availbale" )
+      ( sValue_Url_Api.c_str(), po::value<std::string>( &values.sUrlApi ), "access to api" ) // don't know if this is diferent from previous
+      ( sValue_Url_Redirect.c_str(), po::value<std::string>( &values.sUrlRedirect ), "redirect with token availbale" )
 
       ;
     po::variables_map vm;
@@ -102,11 +108,15 @@ bool Load( const std::string& sFileName, Values& values ) {
     else {
       po::store( po::parse_config_file( ifs, config), vm );
 
+      bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_FQDN, values.sAuthFQDN );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_Port, values.sAuthPort );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_Path, values.sAuthPath );
+
       bOk &= parse<uint16_t>( sFileName, vm, sValue_Port_Management, values.nPortManagement );
       bOk &= parse<uint16_t>( sFileName, vm, sValue_Port_Redirect, values.nPortRedirect );
 
-      bOk &= parse<std::string>( sFileName, vm, sValue_Url_Authentication, values.sUrlAuthentication );
       bOk &= parse<std::string>( sFileName, vm, sValue_Url_Api, values.sUrlApi );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Url_Redirect, values.sUrlRedirect );
 
       //bOk &= parse<std::string>( sFileName, vm, sValue_listen_address, values.sListenAddress );
 

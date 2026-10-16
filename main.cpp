@@ -1,50 +1,76 @@
+/************************************************************************
+ * Copyright(c) 2026, One Unified. All rights reserved.                 *
+ * email: info@oneunified.net                                           *
+ *                                                                      *
+ * This file is provided as is WITHOUT ANY WARRANTY                     *
+ *  without even the implied warranty of                                *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                *
+ *                                                                      *
+ * This software may not be used nor distributed without proper license *
+ * agreement.                                                           *
+ *                                                                      *
+ * See the file LICENSE.txt for redistribution information.             *
+ ************************************************************************/
+
+/*
+ * File:    main.cpp
+ * Author:  raymond@burkholder.net
+ * Project: viesmann
+ * Created: October 12, 2026 18:10:39
+ */
+
 #include <thread>
 
 #include <boost/log/trivial.hpp>
 
 #include <boost/asio/io_context.hpp>
-#include <boost/asio/executor_work_guard.hpp>
-
-#include <boost/asio/ssl.hpp>
 
 #include <ou/rest/handler.hpp>
-//#include <ou/rest/root_certificates.hpp>
-
-#include <boost/asio/strand.hpp>
-#include <boost/log/trivial.hpp>
-
 #include <ou/rest/one_shot.hpp>
 
+#include <ou/anomalon/listen.hpp>
+#include <ou/anomalon/task_group.hpp>
+#include <ou/anomalon/handle_signals.hpp>
+
+#include "config.hpp"
+
 namespace asio = boost::asio; // from <boost/asio/context.hpp>
-namespace ssl  = asio::ssl;   // from <boost/asio/ssl.hpp>
+//namespace ssl  = asio::ssl;   // from <boost/asio/ssl.hpp>
 
 static const std::string c_sHost( "api.telegram.org" );
 static const std::string c_sPort( "443" );
 
 int main(int argc, char **argv) {
 
+  std::string sConfigFilename( "viessmann.cfg" );
+
+  BOOST_LOG_TRIVIAL(info) << "(c)2026 One Unified Net Limited";
+
+  // Check command line arguments.
+  if( 2 == argc ) {
+    sConfigFilename = argv[ 1 ];
+  }
+
+  config::Values choices;
+
+  if ( Load( sConfigFilename, choices ) ) {}
+  else {
+    return EXIT_FAILURE;
+  }
+
   std::thread m_thread;
 
   boost::asio::io_context m_io;
   ssl::context m_ssl_context( ssl::context::tlsv12_client );
 
-  using work_guard_t = asio::executor_work_guard<boost::asio::io_context::executor_type>;
-  using pWorkGuard_t = std::unique_ptr<work_guard_t>;
-
-  pWorkGuard_t m_pWorkGuard;
-
-  m_pWorkGuard = std::make_unique<work_guard_t>( asio::make_work_guard( m_io ) );
-  //m_thread = std::move( std::thread( [&m_io](){ m_io.run(); } ) );
-
   auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_io ), m_ssl_context );
   request->get(
       c_sHost, c_sPort
     , "/url/command"
-    , [&m_pWorkGuard]( bool bStatus, int ec, const std::string& message ){
+    , []( bool bStatus, int ec, const std::string& message ){
         BOOST_LOG_TRIVIAL(info) << "status=" << bStatus << ", message=" << message;
         if ( bStatus ) {
         }
-        m_pWorkGuard->reset();
       }
     );
 

@@ -56,8 +56,10 @@ target_link_libraries(
   ${PROJECT_NAME}
     pthread
     #libou_mqtt.a
-    libou_rest.a
-    #fmt
+    ou_rest.a
+    ou_anomalon.a
+    luajit-5.1
+    fmt.a
     ${Boost_LIBRARIES}
     sodium
     crypto

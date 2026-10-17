@@ -32,14 +32,15 @@ struct Values {
   std::string sAuthFQDN;
   std::string sAuthPort;
   std::string sAuthPath;
+  std::string sAuthClientId;
 
-  uint16_t nPortManagement;
-  uint16_t nPortRedirect;
+  uint16_t nListenPort;
+  std::string sListenAddress;
+
+  std::string sContentDirectory;
 
   std::string sUrlApi;
   std::string sUrlRedirect;
-
-  std::string sClientId;
 
 };
 

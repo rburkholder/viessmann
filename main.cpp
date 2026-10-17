@@ -39,7 +39,7 @@
 #include "config.hpp"
 
 namespace asio = boost::asio; // from <boost/asio/context.hpp>
-//namespace ssl  = asio::ssl;   // from <boost/asio/ssl.hpp>
+namespace ssl  = asio::ssl;   // from <boost/asio/ssl.hpp>
 
 int main(int argc, char **argv) {
 
@@ -59,6 +59,53 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
+  boost::asio::io_context m_io;
+
+  // The SSL context is required, and holds certificates
+  // 1. Initialize with the generic 'tls' method (enables all TLS versions supported by OpenSSL)
+  ssl::context ssl_ctx{ ssl::context::tls };
+
+  // 2. Clear options to make sure no defaults are conflicting
+  ssl_ctx.clear_options( 0 );
+
+  // 3. Explicitly disable older protocols, leaving only TLSv1.2 and TLSv1.3 active
+  ssl_ctx.set_options(
+      ssl::context::default_workarounds
+    | ssl::context::no_sslv2
+    | ssl::context::no_sslv3
+    | ssl::context::no_tlsv1
+    | ssl::context::no_tlsv1_1
+  );
+
+  // Track coroutines
+  task_group task_group{ m_io.get_executor() };
+
+  auto const listen_address  = asio::ip::make_address( choices.sListenAddress );
+  auto const listen_endpoint = asio::ip::tcp::endpoint{ listen_address, choices.nListenPort };
+
+  // Create and launch a listening coroutine
+  net::co_spawn(
+    net::make_strand( m_io ),  // the strand can be removed to allow access to all threads
+    listen( task_group, ssl_ctx, listen_endpoint, choices.sContentDirectory ),
+    task_group.adapt(
+      []( std::exception_ptr e ) {
+        if( e ) {
+          try {
+              std::rethrow_exception(e);
+          }
+          catch ( std::exception& e ) {
+            BOOST_LOG_TRIVIAL(error) << "Error in listener: " << e.what();
+          }
+        }
+      })
+    );
+
+  // Create and launch a signal handler coroutine
+  net::co_spawn(
+    net::make_strand( m_io ),
+    handle_signals( task_group ), net::detached
+  );
+
   PkcePair pkce = generate_pkce();
 
   BOOST_LOG_TRIVIAL(trace) << "--- PKCE Credentials Generated ---";
@@ -71,7 +118,7 @@ int main(int argc, char **argv) {
   boost::urls::params_ref params( url.params() );
   params.append(
     {
-      { "client_id", choices.sClientId },
+      { "client_id", choices.sAuthClientId },
       { "redirect_uri", choices.sUrlRedirect },
       { "scope", "IoT openid" },
       { "response_type", "code" },
@@ -84,9 +131,6 @@ int main(int argc, char **argv) {
 
   //return EXIT_SUCCESS;
 
-  std::thread m_thread;
-
-  boost::asio::io_context m_io;
   ssl::context m_ssl_context( ssl::context::tlsv12_client );
 
   auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_io ), m_ssl_context );
@@ -105,6 +149,8 @@ int main(int argc, char **argv) {
         }
       }
     );
+
+  std::thread m_thread;
 
   m_io.run();
 

@@ -12,9 +12,12 @@ auth_client_id = string
 # local server for general queries
 port_mgmt = 8080
 # local server listens on this for token
-port_redirect = 4200
+listen_address = 127.0.0.1
+listen_port = 4200
 # viessmann api url for authentication token
-url_api = http://whatever
+url_api = https://iam.viessmann-climatesolutions.com/idp/v3/authorize
 # client redirects to this
-url_redirect = http://localhost/auth
+url_redirect = http://localhost:4200/auth.lua
+# scripts
+content_directory = www/content
 ```

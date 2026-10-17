@@ -39,6 +39,8 @@ struct Values {
   std::string sUrlApi;
   std::string sUrlRedirect;
 
+  std::string sClientId;
+
 };
 
 bool Load( const std::string& sFileName, Values& );

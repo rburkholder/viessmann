@@ -16,7 +16,7 @@ set(Boost_USE_MULTITHREADED ON)
 set(BOOST_USE_STATIC_RUNTIME OFF)
 #set(BOOST_INCLUDEDIR "/usr/local/include/boost")
 
-find_package(Boost ${TF_BOOST_VERSION} REQUIRED COMPONENTS program_options system date_time filesystem serialization regex log log_setup json)
+find_package(Boost ${TF_BOOST_VERSION} REQUIRED COMPONENTS program_options system date_time filesystem serialization regex log log_setup json url)
 
 #message("boost lib: ${Boost_LIBRARIES}")
 
@@ -57,6 +57,7 @@ target_link_libraries(
     libou_rest.a
     #fmt
     ${Boost_LIBRARIES}
+    sodium
     crypto
     ssl
   )

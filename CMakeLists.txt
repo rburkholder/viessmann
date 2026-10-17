@@ -23,12 +23,14 @@ find_package(Boost ${TF_BOOST_VERSION} REQUIRED COMPONENTS program_options syste
 set(
   file_hpp
     config.hpp
+    pkce.hpp
   )
 
 set(
   file_cpp
     config.cpp
     main.cpp
+    pkce.cpp
   )
 
 add_executable(

@@ -1,14 +1,21 @@
+--
+-- 2026/10/18
+-- test return values
+--
+
 package.path="www/lib/?.lua"
 
 require( 'template' )
 local h = require( 'html' )
 
-local output = h.Document{
-	lang = "en",
-  H_head( "Viessmann API Test" ),
+render = function()
+  local output = h.Document{
+    lang = "en",
+    H_head( "Viessmann API Test version 2" ),
 
-  H_body{
-    "body text goes here"
+    H_body{
+      "body text goes here v4"
+    }
   }
-}
-Render( 'text/html', tostring( output ) ) -- set by caller to render into response
+  return 'text/html', tostring( output )
+end

@@ -1,14 +1,22 @@
+--
+-- 2026/10/18
+-- test viessmann auth
+--
 package.path="www/lib/?.lua"
 
 require( 'template' )
 local h = require( 'html' )
 
-local output = h.Document{
-	lang = "en",
-  H_head( "Viessmann API Test" ),
+local b = get_viessmann_body()
 
-  H_body{
-    "auth processing goes here"
+render = function()
+  local output = h.Document{
+    lang = "en",
+    H_head( "Viessmann API Test" ),
+
+    H_body{
+      "auth processing goes here: ", h.b{ get_viessmann_body() }
+    }
   }
-}
-Render( 'text/html', tostring( output ) ) -- set by caller to render into response
+  return 'text/html', tostring( output )
+end

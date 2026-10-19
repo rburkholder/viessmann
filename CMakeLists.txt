@@ -41,9 +41,13 @@ add_executable(
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC BOOST_LOG_DYN_LINK )
 
+target_compile_definitions( ${PROJECT_NAME} PUBLIC SOL_LUAJIT=1 )
+target_compile_definitions( ${PROJECT_NAME} PUBLIC SOL_ALL_SAFETIES_ON=1 )
+
 target_include_directories(
   ${PROJECT_NAME} PUBLIC
     /usr/local/include
+    /usr/local/include/luajit-2.1
   )
 
 target_link_directories(

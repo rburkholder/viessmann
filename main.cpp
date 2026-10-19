@@ -28,11 +28,14 @@
 #include <boost/url/url.hpp>
 #include <boost/url/params_ref.hpp>
 
+#include <sol/sol.hpp>
+
 #include <ou/rest/handler.hpp>
 #include <ou/rest/one_shot.hpp>
 
 #include <ou/anomalon/listen.hpp>
 #include <ou/anomalon/task_group.hpp>
+#include <ou/anomalon/handle_methods.hpp>
 #include <ou/anomalon/handle_signals.hpp>
 
 #include "pkce.hpp"
@@ -58,6 +61,16 @@ int main(int argc, char **argv) {
   else {
     return EXIT_FAILURE;
   }
+
+  LoadCustomCode(
+    []( sol::state& ss ){
+      ss.set_function(
+        "get_viessmann_body",
+        []()->std::string {
+          return "this will be the new body";
+        }
+      );
+    } );
 
   boost::asio::io_context m_io;
 

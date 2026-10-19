@@ -42,7 +42,7 @@ namespace {
 
   static const std::string sValue_Content_Directory( "content_directory" );
 
-  static const std::string sValue_Url_Api( "url_api" );
+  //static const std::string sValue_Url_Api( "url_api" );
   static const std::string sValue_Url_Redirect( "url_redirect" );
 
   //template<typename T>
@@ -95,7 +95,7 @@ bool Load( const std::string& sFileName, Values& values ) {
 
       ( sValue_Content_Directory.c_str(), po::value<std::string>( &values.sContentDirectory ), "content directory" )
 
-      ( sValue_Url_Api.c_str(), po::value<std::string>( &values.sUrlApi ), "access to api" ) // don't know if this is diferent from previous
+      //( sValue_Url_Api.c_str(), po::value<std::string>( &values.sUrlApi ), "access to api" ) // don't know if this is diferent from previous
       ( sValue_Url_Redirect.c_str(), po::value<std::string>( &values.sUrlRedirect ), "redirect with token availbale" )
 
       ;
@@ -121,7 +121,7 @@ bool Load( const std::string& sFileName, Values& values ) {
 
       bOk &= parse<std::string>( sFileName, vm, sValue_Content_Directory, values.sContentDirectory );
 
-      bOk &= parse<std::string>( sFileName, vm, sValue_Url_Api, values.sUrlApi );
+      //bOk &= parse<std::string>( sFileName, vm, sValue_Url_Api, values.sUrlApi );
       bOk &= parse<std::string>( sFileName, vm, sValue_Url_Redirect, values.sUrlRedirect );
 
     }

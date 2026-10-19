@@ -39,7 +39,7 @@ struct Values {
 
   std::string sContentDirectory;
 
-  std::string sUrlApi;
+  //std::string sUrlApi;
   std::string sUrlRedirect;
 
 };

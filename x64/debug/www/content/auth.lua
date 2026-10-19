@@ -15,7 +15,7 @@ render = function()
     H_head( "Viessmann API Test" ),
 
     H_body{
-      "auth processing goes here: ", h.b{ get_viessmann_body() }
+      "auth processing goes here: ", h.b{ get_viessmann_body() }, " ", GetTimeStamp(), " ", url_params[ "code" ]
     }
   }
   return 'text/html', tostring( output )

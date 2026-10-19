@@ -35,7 +35,7 @@
 
 #include <ou/anomalon/listen.hpp>
 #include <ou/anomalon/task_group.hpp>
-#include <ou/anomalon/handle_methods.hpp>
+#include <ou/anomalon/handle_methods_lua.hpp>
 #include <ou/anomalon/handle_signals.hpp>
 
 #include "pkce.hpp"

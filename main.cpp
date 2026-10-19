@@ -62,16 +62,6 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  LoadCustomCode(
-    []( sol::state& ss ){
-      ss.set_function(
-        "get_viessmann_body",
-        []()->std::string {
-          return "this will be the new body";
-        }
-      );
-    } );
-
   boost::asio::io_context m_io;
 
   // The SSL context is required, and holds certificates
@@ -142,26 +132,89 @@ int main(int argc, char **argv) {
 
   BOOST_LOG_TRIVIAL(trace) << "path: " << url.path() + '?' + url.query();
 
+  std::string viessmann_response;
+  viessmann_response = "https://" + choices.sAuthFQDN + url.path() + "authorize" + '?' + url.query();
+
   //return EXIT_SUCCESS;
 
   ssl::context m_ssl_context( ssl::context::tlsv12_client );
-
+/*
   auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_io ), m_ssl_context );
   request->post(
       choices.sAuthFQDN
     , choices.sAuthPort
     , url.path() + '?' + url.query()
     , ""
-    , []( bool bStatus, int ec, const std::string& message ){
+    , [&viessmann_response]( bool bStatus, int ec, const std::string& message ){
         BOOST_LOG_TRIVIAL(info) << "status=" << bStatus << ", message=" << message;
         if ( bStatus ) {
-          // next step
+          viessmann_response = std::move( message );
         }
         else {
           // fail
         }
       }
     );
+*/
+
+  bool bAuthorizationDone( false );
+
+  LoadCustomCode(
+    [&viessmann_response,&choices,&pkce,&m_io,&bAuthorizationDone]( sol::state& ss ){
+      ss.set_function(
+        "get_viessmann_body",
+        [&viessmann_response]()->std::string {
+          return viessmann_response;
+        }
+      );
+      ss.set_function(
+        "authorization_done",
+        [&bAuthorizationDone]()->bool {
+          return bAuthorizationDone;
+        }
+      );
+      ss.set_function(
+        "post_authorization",
+        [&choices,&pkce,&m_io,&bAuthorizationDone]( std::string_view svCode ){
+          bAuthorizationDone = true;
+          boost::urls::url url;
+          url.set_encoded_path( choices.sAuthPath );
+          boost::urls::params_ref params( url.params() );
+          params.append(
+            {
+              { "client_id", choices.sAuthClientId },
+              { "redirect_uri", choices.sUrlRedirect },
+              { "grant_type", "authorization_code" },
+              { "code_verifier", pkce.code_verifier },
+              { "code", svCode }
+            }
+          );
+
+          BOOST_LOG_TRIVIAL(trace) << "step 2 path: " << url.path() + "token?" + url.query();
+
+          //return EXIT_SUCCESS;
+
+          ssl::context m_ssl_context( ssl::context::tlsv12_client );
+          auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_io ), m_ssl_context );
+          request->post(
+              choices.sAuthFQDN
+            , choices.sAuthPort
+            , url.path() + "token"
+            , url.query()
+            , "application/x-www-form-urlencoded"
+            , []( bool bStatus, int ec, const std::string& message ){
+                BOOST_LOG_TRIVIAL(info) << "step 2 status=" << bStatus << ", message=" << message;
+                if ( bStatus ) {
+
+                }
+                else {
+                  // fail
+                }
+              }
+            );
+        }
+      );
+    } );
 
   std::thread m_thread;
 

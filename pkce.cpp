@@ -19,6 +19,8 @@
  * Created: October 17, 2026 15:36:47
  */
 
+// https://www.rfc-editor.org/info/rfc7636/#section-1.1
+
 #include <sodium.h>
 
 #include <boost/log/trivial.hpp>

@@ -38,8 +38,6 @@ namespace ssl  = asio::ssl;   // from <boost/asio/ssl.hpp>
 
 void bypass_browser() {
 
-  ssl::context ssl_context( ssl::context::tlsv12_client );
-
 /*
   auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_io ), ssl_context );
   request->post(
@@ -58,6 +56,10 @@ void bypass_browser() {
       }
     );
 */
+}
+
+namespace {
+  ssl::context ssl_context( ssl::context::tlsv12_client );
 }
 
 viessmann::viessmann( const config::Values& choices, asio::io_context& ioc )
@@ -114,9 +116,6 @@ void viessmann::iam( const std::string_view svCode ) {
 
   BOOST_LOG_TRIVIAL(trace) << "iam path: " << url.path() + "token?" + url.query();
 
-  //return EXIT_SUCCESS;
-
-  ssl::context ssl_context( ssl::context::tlsv12_client );
   auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_ioc ), ssl_context );
   request->post(
       m_choices.sAuthFQDN
@@ -131,27 +130,12 @@ void viessmann::iam( const std::string_view svCode ) {
         if ( bStatus ) {
           boost::json::value jv = boost::json::parse( message );
           boost::json::object const& obj = jv.as_object();
-          std::string access_token;
-          std::string token_type;
-          uint32_t expires_in;
-          access_token = boost::json::value_to<std::string>( obj.at( "access_token" ) );
-          token_type = boost::json::value_to<std::string>( obj.at( "token_type" ) );
-          expires_in = boost::json::value_to<uint32_t>( obj.at( "expires_in" ) );
-          ssl::context ssl_context( ssl::context::tlsv12_client );
 
-          auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_ioc ), ssl_context );
-          request->get(
-            "api.viessmann-climatesolutions.com"
-          , m_choices.sAuthPort
-          , [&token_type,&access_token]( ou::rest::handler::pRequestEmptyBody_t& pRequest ){
-              //pRequest->target( "/iot/v2/equipment/gateways" );
-              pRequest->target( "/iot/v2/equipment/installations" );
-              pRequest->set( "Authorization", token_type + " " + access_token );
-            }
-          , []( bool bStatus, int ec, const std::string& message ){
-              BOOST_LOG_TRIVIAL(trace) << "step 3: " << bStatus << ',' << ec << ',' << message;
-            }
-          );
+          m_sTokenType = boost::json::value_to<std::string>( obj.at( "token_type" ) );
+          m_sAccessToken = boost::json::value_to<std::string>( obj.at( "access_token" ) );
+          m_nExpires = boost::json::value_to<uint32_t>( obj.at( "expires_in" ) );
+
+          api();
         }
         else {
           // fail
@@ -159,9 +143,20 @@ void viessmann::iam( const std::string_view svCode ) {
         }
       }
     );
-
 }
 
 void viessmann::api() {
-
+  auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_ioc ), ssl_context );
+  request->get(
+    "api.viessmann-climatesolutions.com"
+  , m_choices.sAuthPort
+  , [this]( ou::rest::handler::pRequestEmptyBody_t& pRequest ){
+      //pRequest->target( "/iot/v2/equipment/gateways" );
+      pRequest->target( "/iot/v2/equipment/installations" );
+      pRequest->set( "Authorization", m_sTokenType + " " + m_sAccessToken );
+    }
+  , []( bool bStatus, int ec, const std::string& message ){
+      BOOST_LOG_TRIVIAL(trace) << "step 3: " << bStatus << ',' << ec << ',' << message;
+    }
+  );
 }

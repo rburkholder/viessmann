@@ -37,12 +37,20 @@ public:
   ~viessmann();
 
   std::string initial_url();
-  void iam( const std::string_view );
-  void api();
+  void iam( const std::string_view /* code */ );
 
 protected:
 private:
+
   const config::Values& m_choices;
-  PkcePair m_pkce;
   asio::io_context& m_ioc;
+
+  PkcePair m_pkce;
+
+  std::string m_sTokenType;
+  std::string m_sAccessToken;
+  uint32_t m_nExpires;
+
+  void api();
+
 };

@@ -49,6 +49,7 @@ private:
 
   std::string m_sTokenType;
   std::string m_sAccessToken;
+  std::string m_sRefreshToken;
   uint32_t m_nExpires;
 
   void api();

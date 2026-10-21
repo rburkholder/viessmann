@@ -87,7 +87,7 @@ std::string viessmann::initial_url() {
     {
       { "client_id", m_choices.sAuthClientId },
       { "redirect_uri", m_choices.sUrlRedirect },
-      { "scope", "IoT openid" },
+      { "scope", "IoT User offline_access" },
       { "response_type", "code" },
       { "code_challenge_method", "S256" },
       { "code_challenge", m_pkce.code_challenge }
@@ -133,6 +133,7 @@ void viessmann::iam( const std::string_view svCode ) {
 
           m_sTokenType = boost::json::value_to<std::string>( obj.at( "token_type" ) );
           m_sAccessToken = boost::json::value_to<std::string>( obj.at( "access_token" ) );
+          m_sRefreshToken = boost::json::value_to<std::string>( obj.at( "refresh_token" ) );
           m_nExpires = boost::json::value_to<uint32_t>( obj.at( "expires_in" ) );
 
           api();

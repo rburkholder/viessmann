@@ -24,6 +24,7 @@ set(
   file_hpp
     config.hpp
     pkce.hpp
+    viessmann.hpp
   )
 
 set(
@@ -31,6 +32,7 @@ set(
     config.cpp
     main.cpp
     pkce.cpp
+    viessmann.cpp
   )
 
 add_executable(

@@ -53,7 +53,12 @@ private:
   uint32_t m_nExpires;
 
   uint32_t m_nSiteId;
-  std::string m_sStatus;
+  std::string m_sSiteStatus;
+
+  std::string m_sGatewaySerial;
+  std::string m_sGatewayLastStatusChanged;
+  std::string m_sGatewayStatus;
+  uint32_t m_nGatewaySiteId;
 
   void refresh_access_token();
   void get_installations();

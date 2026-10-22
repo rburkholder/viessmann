@@ -155,6 +155,7 @@ void viessmann::iam( const std::string_view svCode ) {
 }
 
 // https://api.viessmann-climatesolutions.com/documentation/static/iot-overview
+
 void viessmann::get_installations() {
   auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_ioc ), ssl_context );
   request->get(
@@ -166,17 +167,58 @@ void viessmann::get_installations() {
       pRequest->set( "Authorization", m_sTokenType + " " + m_sAccessToken );
     }
   , [this]( bool bStatus, int ec, const std::string& message ){
-      BOOST_LOG_TRIVIAL(trace) << "step 3: " << bStatus << ',' << ec << ',' << message;
-      json::value jv = boost::json::parse( message );
-      json::object const& obj = jv.as_object();
-      using vObject_t = std::vector<json::object>;
-      vObject_t vData;
-      vData = json::value_to<vObject_t>( obj.at( "data" ) );
-//      BOOST_LOG_TRIVIAL(debug) << "data is type: " << vData.size() << ',' << typeid( vData ).name();
-      assert( 1 <= vData.size() );
-      json::object site = vData[ 0 ];
-      m_nSiteId = json::value_to<uint32_t>( site.at( "id" ) );
-      m_sStatus = json::value_to<std::string>( site.at( "aggregatedStatus") );
+      if ( bStatus ) {
+        //BOOST_LOG_TRIVIAL(trace) << "step 3: " << bStatus << ',' << ec << ',' << message;
+        json::value jv = boost::json::parse( message );
+        json::object const& obj = jv.as_object();
+        using vObject_t = std::vector<json::object>;
+        vObject_t vData;
+        vData = json::value_to<vObject_t>( obj.at( "data" ) );
+        assert( 1 <= vData.size() );
+        json::object site = vData[ 0 ];
+        m_nSiteId = json::value_to<uint32_t>( site.at( "id" ) );
+        m_sSiteStatus = json::value_to<std::string>( site.at( "aggregatedStatus") );
+        BOOST_LOG_TRIVIAL(info) << "site " << m_nSiteId << ": " << m_sSiteStatus;
+
+        get_gateways();
+      }
+      else {
+        BOOST_LOG_TRIVIAL(trace) << "get installations error: " << bStatus << ',' << ec << ',' << message;
+      }
+    }
+  );
+}
+
+void viessmann::get_gateways() {
+  auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_ioc ), ssl_context );
+  request->get(
+    m_choices.sApiFQDN
+  , m_choices.sApiPort
+  , [this]( ou::rest::handler::pRequestEmptyBody_t& pRequest ){
+      //pRequest->target( "/iot/v2/equipment/gateways" );
+      pRequest->target( "/iot/v2/equipment/gateways" );
+      pRequest->set( "Authorization", m_sTokenType + " " + m_sAccessToken );
+    }
+  , [this]( bool bStatus, int ec, const std::string& message ){
+      if ( bStatus ) {
+        //BOOST_LOG_TRIVIAL(trace) << "get gateways: " << bStatus << ',' << ec << ',' << message;
+        json::value jv = boost::json::parse( message );
+        json::object const& obj = jv.as_object();
+        using vObject_t = std::vector<json::object>;
+        vObject_t vData;
+        vData = json::value_to<vObject_t>( obj.at( "data" ) );
+        assert( 1 <= vData.size() );
+        json::object site = vData[ 0 ];
+        m_nGatewaySiteId = json::value_to<uint32_t>( site.at( "installationId" ) );
+        m_sGatewaySerial = json::value_to<std::string>( site.at( "serial") );
+        m_sGatewayLastStatusChanged = json::value_to<std::string>( site.at( "lastStatusChangedAt") );
+        m_sGatewayStatus = json::value_to<std::string>( site.at( "aggregatedStatus") );
+        BOOST_LOG_TRIVIAL(info) << "gateway '" << m_sGatewaySerial << "': " << m_sGatewayStatus << ", changed:" << m_sGatewayLastStatusChanged;
+        assert( m_nGatewaySiteId == m_nSiteId );
+      }
+      else {
+        BOOST_LOG_TRIVIAL(trace) << "get gateways error: " << bStatus << ',' << ec << ',' << message;
+      }
     }
   );
 }

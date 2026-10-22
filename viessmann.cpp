@@ -21,6 +21,7 @@
 
 //#include <typeinfo>
 #include <vector>
+#include <exception>
 
 #include <boost/log/trivial.hpp>
 
@@ -31,6 +32,8 @@
 #include <boost/url/params_ref.hpp>
 
 #include <boost/json.hpp>
+
+#include <fmt/format.h>
 
 #include <ou/rest/one_shot.hpp>
 
@@ -142,13 +145,13 @@ void viessmann::iam( const std::string_view svCode ) {
 
           // https://api.viessmann-climatesolutions.com/documentation/static/authentication
           // For refresh tokens, the TTL is 15552000 seconds (180 days).
-          BOOST_LOG_TRIVIAL(info) << "step 2 refresh=" << m_sRefreshToken;
+          BOOST_LOG_TRIVIAL(info) << "refresh token=" << m_sRefreshToken;
 
           get_installations();
         }
         else {
           // fail
-          BOOST_LOG_TRIVIAL(info) << "step 2 status=" << bStatus << ", message=" << message;
+          BOOST_LOG_TRIVIAL(error) << "iam request=" << bStatus << ", message=" << message;
         }
       }
     );
@@ -162,28 +165,33 @@ void viessmann::get_installations() {
     m_choices.sApiFQDN
   , m_choices.sApiPort
   , [this]( ou::rest::handler::pRequestEmptyBody_t& pRequest ){
-      //pRequest->target( "/iot/v2/equipment/gateways" );
       pRequest->target( "/iot/v2/equipment/installations" );
       pRequest->set( "Authorization", m_sTokenType + " " + m_sAccessToken );
     }
   , [this]( bool bStatus, int ec, const std::string& message ){
       if ( bStatus ) {
-        //BOOST_LOG_TRIVIAL(trace) << "step 3: " << bStatus << ',' << ec << ',' << message;
-        json::value jv = boost::json::parse( message );
-        json::object const& obj = jv.as_object();
-        using vObject_t = std::vector<json::object>;
-        vObject_t vData;
-        vData = json::value_to<vObject_t>( obj.at( "data" ) );
-        assert( 1 <= vData.size() );
-        json::object site = vData[ 0 ];
-        m_nSiteId = json::value_to<uint32_t>( site.at( "id" ) );
-        m_sSiteStatus = json::value_to<std::string>( site.at( "aggregatedStatus") );
-        BOOST_LOG_TRIVIAL(info) << "site " << m_nSiteId << ": " << m_sSiteStatus;
+        try {
+          //BOOST_LOG_TRIVIAL(trace) << "step 3: " << bStatus << ',' << ec << ',' << message;
+          json::value jv = boost::json::parse( message );
+          json::object const& obj = jv.as_object();
+          using vObject_t = std::vector<json::object>;
+          vObject_t vData;
+          vData = json::value_to<vObject_t>( obj.at( "data" ) );
+          assert( 1 <= vData.size() );
+          json::object site = vData[ 0 ];
+          m_nSiteId = json::value_to<uint32_t>( site.at( "id" ) );
+          m_sSiteStatus = json::value_to<std::string>( site.at( "aggregatedStatus") );
+          BOOST_LOG_TRIVIAL(info) << "site " << m_nSiteId << ": " << m_sSiteStatus;
 
-        get_gateways();
+          get_gateways();
+        }
+        catch ( const std::exception& e ) {
+          BOOST_LOG_TRIVIAL(error) << "get installations status: " << bStatus << ',' << ec << ',' << message;
+          BOOST_LOG_TRIVIAL(error) << "get_installations error: " << e.what();
+        }
       }
       else {
-        BOOST_LOG_TRIVIAL(trace) << "get installations error: " << bStatus << ',' << ec << ',' << message;
+        BOOST_LOG_TRIVIAL(error) << "get installations error: " << bStatus << ',' << ec << ',' << message;
       }
     }
   );
@@ -195,7 +203,6 @@ void viessmann::get_gateways() {
     m_choices.sApiFQDN
   , m_choices.sApiPort
   , [this]( ou::rest::handler::pRequestEmptyBody_t& pRequest ){
-      //pRequest->target( "/iot/v2/equipment/gateways" );
       pRequest->target( "/iot/v2/equipment/gateways" );
       pRequest->set( "Authorization", m_sTokenType + " " + m_sAccessToken );
     }
@@ -215,9 +222,65 @@ void viessmann::get_gateways() {
         m_sGatewayStatus = json::value_to<std::string>( site.at( "aggregatedStatus") );
         BOOST_LOG_TRIVIAL(info) << "gateway '" << m_sGatewaySerial << "': " << m_sGatewayStatus << ", changed:" << m_sGatewayLastStatusChanged;
         assert( m_nGatewaySiteId == m_nSiteId );
+
+        get_devices();
       }
       else {
-        BOOST_LOG_TRIVIAL(trace) << "get gateways error: " << bStatus << ',' << ec << ',' << message;
+        BOOST_LOG_TRIVIAL(error) << "get gateways error: " << bStatus << ',' << ec << ',' << message;
+      }
+    }
+  );
+}
+
+void viessmann::get_devices() {
+  auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_ioc ), ssl_context );
+  request->get(
+    m_choices.sApiFQDN
+  , m_choices.sApiPort
+  , [this]( ou::rest::handler::pRequestEmptyBody_t& pRequest ){
+      const std::string target( fmt::format( "/iot/v2/equipment/installations/{}/gateways/{}/devices", m_nSiteId, m_sGatewaySerial ) );
+      BOOST_LOG_TRIVIAL(trace) << "devices request: '" << target << "'";
+      pRequest->target( target );
+      pRequest->set( "Authorization", m_sTokenType + " " + m_sAccessToken );
+    }
+  , [this]( bool bStatus, int ec, const std::string& message ){
+      if ( bStatus ) {
+        //BOOST_LOG_TRIVIAL(trace) << "get devices: " << bStatus << ',' << ec << ',' << message;
+        json::value jv = boost::json::parse( message );
+        json::object const& obj = jv.as_object();
+        using vObject_t = std::vector<json::object>;
+        vObject_t vData;
+
+        get_features();
+      }
+      else {
+        BOOST_LOG_TRIVIAL(error) << "get devices error: " << bStatus << ',' << ec << ',' << message;
+      }
+    }
+  );
+}
+
+void viessmann::get_features() {
+  auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_ioc ), ssl_context );
+  request->get(
+    m_choices.sApiFQDN
+  , m_choices.sApiPort
+  , [this]( ou::rest::handler::pRequestEmptyBody_t& pRequest ){
+      const std::string target( fmt::format( "/iot/v2/features/installations/{}/gateways/{}/devices/{}/features", m_nSiteId, m_sGatewaySerial, "0" ) );
+      BOOST_LOG_TRIVIAL(trace) << "features request: '" << target << "'";
+      pRequest->target( target );
+      pRequest->set( "Authorization", m_sTokenType + " " + m_sAccessToken );
+    }
+  , [this]( bool bStatus, int ec, const std::string& message ){
+      if ( bStatus ) {
+        BOOST_LOG_TRIVIAL(trace) << "get features: " << bStatus << ',' << ec << ',' << message;
+        json::value jv = boost::json::parse( message );
+        json::object const& obj = jv.as_object();
+        using vObject_t = std::vector<json::object>;
+        vObject_t vData;
+      }
+      else {
+        BOOST_LOG_TRIVIAL(error) << "get features error: " << bStatus << ',' << ec << ',' << message;
       }
     }
   );
@@ -269,7 +332,7 @@ void viessmann::refresh_access_token() {
         }
         else {
           // fail
-          BOOST_LOG_TRIVIAL(info) << "token refresh status=" << bStatus << ", message=" << message;
+          BOOST_LOG_TRIVIAL(error) << "token refresh status=" << bStatus << ", message=" << message;
         }
       }
     );

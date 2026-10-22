@@ -63,5 +63,7 @@ private:
   void refresh_access_token();
   void get_installations();
   void get_gateways();
+  void get_devices();
+  void get_features();
 
 };

@@ -70,5 +70,6 @@ target_link_libraries(
     sodium
     crypto
     ssl
+    fmt
   )
 

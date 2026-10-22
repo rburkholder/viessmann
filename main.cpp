@@ -107,11 +107,22 @@ int main(int argc, char **argv) {
 
   viessmann viessmann( choices, m_ioc );
 
+  // TODO: refresh token
+  //   step thorugh initial acquisition
+  //   perform polling
+
   LoadCustomCode(
     [&viessmann,&bAuthorizationDone]( sol::state& ss ){
       ss.set_function(
+        "reset_authorization",
+        [&bAuthorizationDone](){
+          bAuthorizationDone = false;
+        }
+      ),
+      ss.set_function(
         "get_viessmann_body",
-        [&viessmann]()->std::string {
+        [&viessmann,&bAuthorizationDone]()->std::string {
+          bAuthorizationDone = false;
           return viessmann.initial_url();
         }
       );

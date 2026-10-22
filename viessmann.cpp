@@ -19,6 +19,9 @@
  * Created: October 20, 2026 19:11:59
  */
 
+//#include <typeinfo>
+#include <vector>
+
 #include <boost/log/trivial.hpp>
 
 #include <boost/asio/strand.hpp>
@@ -35,6 +38,7 @@
 
 namespace asio = boost::asio; // from <boost/asio/context.hpp>
 namespace ssl  = asio::ssl;   // from <boost/asio/ssl.hpp>
+namespace json = boost::json;
 
 void bypass_browser() {
 
@@ -86,7 +90,7 @@ std::string viessmann::initial_url() {
   params.append(
     {
       { "client_id", m_choices.sAuthClientId },
-      { "redirect_uri", m_choices.sUrlRedirect },
+      { "redirect_uri", m_choices.sAuthRedirect },
       { "scope", "IoT User offline_access" },
       { "response_type", "code" },
       { "code_challenge_method", "S256" },
@@ -107,7 +111,7 @@ void viessmann::iam( const std::string_view svCode ) {
   params.append(
     {
       { "client_id", m_choices.sAuthClientId },
-      { "redirect_uri", m_choices.sUrlRedirect },
+      { "redirect_uri", m_choices.sAuthRedirect },
       { "grant_type", "authorization_code" },
       { "code_verifier", m_pkce.code_verifier },
       { "code", svCode }
@@ -128,19 +132,19 @@ void viessmann::iam( const std::string_view svCode ) {
       }
     , [this]( bool bStatus, int ec, const std::string& message ){
         if ( bStatus ) {
-          boost::json::value jv = boost::json::parse( message );
-          boost::json::object const& obj = jv.as_object();
+          json::value jv = boost::json::parse( message );
+          json::object const& obj = jv.as_object();
 
-          m_sTokenType = boost::json::value_to<std::string>( obj.at( "token_type" ) );
-          m_sAccessToken = boost::json::value_to<std::string>( obj.at( "access_token" ) );
-          m_sRefreshToken = boost::json::value_to<std::string>( obj.at( "refresh_token" ) );
-          m_nExpires = boost::json::value_to<uint32_t>( obj.at( "expires_in" ) );
+          m_sTokenType = json::value_to<std::string>( obj.at( "token_type" ) );
+          m_sAccessToken = json::value_to<std::string>( obj.at( "access_token" ) );
+          m_sRefreshToken = json::value_to<std::string>( obj.at( "refresh_token" ) );
+          m_nExpires = json::value_to<uint32_t>( obj.at( "expires_in" ) );
 
           // https://api.viessmann-climatesolutions.com/documentation/static/authentication
           // For refresh tokens, the TTL is 15552000 seconds (180 days).
           BOOST_LOG_TRIVIAL(info) << "step 2 refresh=" << m_sRefreshToken;
 
-          api();
+          get_installations();
         }
         else {
           // fail
@@ -150,18 +154,29 @@ void viessmann::iam( const std::string_view svCode ) {
     );
 }
 
-void viessmann::api() {
+// https://api.viessmann-climatesolutions.com/documentation/static/iot-overview
+void viessmann::get_installations() {
   auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_ioc ), ssl_context );
   request->get(
-    "api.viessmann-climatesolutions.com"
-  , m_choices.sAuthPort
+    m_choices.sApiFQDN
+  , m_choices.sApiPort
   , [this]( ou::rest::handler::pRequestEmptyBody_t& pRequest ){
       //pRequest->target( "/iot/v2/equipment/gateways" );
       pRequest->target( "/iot/v2/equipment/installations" );
       pRequest->set( "Authorization", m_sTokenType + " " + m_sAccessToken );
     }
-  , []( bool bStatus, int ec, const std::string& message ){
+  , [this]( bool bStatus, int ec, const std::string& message ){
       BOOST_LOG_TRIVIAL(trace) << "step 3: " << bStatus << ',' << ec << ',' << message;
+      json::value jv = boost::json::parse( message );
+      json::object const& obj = jv.as_object();
+      using vObject_t = std::vector<json::object>;
+      vObject_t vData;
+      vData = json::value_to<vObject_t>( obj.at( "data" ) );
+//      BOOST_LOG_TRIVIAL(debug) << "data is type: " << vData.size() << ',' << typeid( vData ).name();
+      assert( 1 <= vData.size() );
+      json::object site = vData[ 0 ];
+      m_nSiteId = json::value_to<uint32_t>( site.at( "id" ) );
+      m_sStatus = json::value_to<std::string>( site.at( "aggregatedStatus") );
     }
   );
 }
@@ -209,7 +224,6 @@ void viessmann::refresh_access_token() {
           // For refresh tokens, the TTL is 15552000 seconds (180 days).
           BOOST_LOG_TRIVIAL(info) << "token refresh=" << m_sRefreshToken;
 
-          api();
         }
         else {
           // fail

@@ -52,7 +52,11 @@ private:
   std::string m_sRefreshToken;
   uint32_t m_nExpires;
 
-  void api();
+  uint32_t m_nSiteId;
+  std::string m_sStatus;
+
   void refresh_access_token();
+  void get_installations();
+  void get_gateways();
 
 };

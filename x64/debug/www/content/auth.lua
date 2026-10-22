@@ -4,6 +4,10 @@
 --
 package.path="www/lib/?.lua"
 
+--
+-- todo: add button to refresh the code
+--
+
 local h = require( 'html' )
 require( 'template' )
 
@@ -11,8 +15,7 @@ local function show_link()
   local output = h.Document{
 
     lang = "en",
-    H_head( "Viessmann API Test - show link" ),
-
+    H_head( "viessmann - show link" ),
     H_body{
       "viessmann login: ",
       h.a{
@@ -26,13 +29,21 @@ local function show_link()
 end
 
 local function process_code( code )
-  --local code = url_params[ "code" ]
   local output = h.Document{
 
     lang = "en",
-    H_head( "Viessmann API Test - process code" ),
+    H_head( "viessmann - process code" ),
     H_body{
-      "code: ", code
+      h.div{
+        "code: ", code
+      },
+      h.div{
+        h.a{
+          href="/",
+          "home"
+        }
+      }
+
     }
   }
   post_authorization( code )
@@ -43,9 +54,18 @@ local function process_done( done )
   local output = h.Document{
 
     lang = "en",
-    H_head( "Viessmann API Test - process done" ),
+    H_head( "viessmann - process done" ),
     H_body{
-      "processing is done:", type( done ), done
+      h.div{
+        "processing is done:", type( done ), done
+      },
+      h.div{
+        h.a{
+          href="/",
+          "home"
+        }
+      }
+
     }
   }
   return 'text/html', tostring( output )

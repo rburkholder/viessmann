@@ -32,18 +32,19 @@ namespace po = boost::program_options;
 
 namespace {
 
-  static const std::string sValue_Authentication_FQDN( "auth_fqdn" );
-  static const std::string sValue_Authentication_Port( "auth_port" );
-  static const std::string sValue_Authentication_Path( "auth_path" );
-  static const std::string sValue_Authentication_Client_Id( "auth_client_id" );
-
   static const std::string sValue_Listen_Address( "listen_address" );
   static const std::string sValue_Listen_Port( "listen_port" );
 
   static const std::string sValue_Content_Directory( "content_directory" );
 
-  //static const std::string sValue_Url_Api( "url_api" );
-  static const std::string sValue_Url_Redirect( "url_redirect" );
+  static const std::string sValue_Authentication_FQDN( "auth_fqdn" );
+  static const std::string sValue_Authentication_Port( "auth_port" );
+  static const std::string sValue_Authentication_Path( "auth_path" );
+  static const std::string sValue_Authentication_Client_Id( "auth_client_id" );
+  static const std::string sValue_Authentication_Redirect( "auth_redirect" );
+
+  static const std::string sValue_Api_FQDN( "api_fqdn" );
+  static const std::string sValue_Api_Port( "api_port" );
 
   //template<typename T>
   //void log( const std::string& name, typename std::enable_if<std::is_pod<T&>::value>::type& dest ) {
@@ -85,19 +86,19 @@ bool Load( const std::string& sFileName, Values& values ) {
     po::options_description config( "web.boost config file" );
     config.add_options()
 
-      ( sValue_Authentication_FQDN.c_str(), po::value<std::string>( &values.sAuthFQDN ), "authentication fqdn" )
-      ( sValue_Authentication_Port.c_str(), po::value<std::string>( &values.sAuthPort ), "authentication port" )
-      ( sValue_Authentication_Path.c_str(), po::value<std::string>( &values.sAuthPath ), "authentication path" )
-      ( sValue_Authentication_Client_Id.c_str(), po::value<std::string>( &values.sAuthClientId ), "viessmann client id" )
+      ( sValue_Content_Directory.c_str(), po::value<std::string>( &values.sContentDirectory ), "content directory" )
 
       ( sValue_Listen_Port.c_str(), po::value<uint16_t>( &values.nListenPort )->default_value( 8087 ), "listen port" )
       ( sValue_Listen_Address.c_str(), po::value<std::string>( &values.sListenAddress )->default_value( "127.0.0.1" ), "listen address" )
 
-      ( sValue_Content_Directory.c_str(), po::value<std::string>( &values.sContentDirectory ), "content directory" )
+      ( sValue_Authentication_FQDN.c_str(), po::value<std::string>( &values.sAuthFQDN ), "authentication fqdn" )
+      ( sValue_Authentication_Port.c_str(), po::value<std::string>( &values.sAuthPort ), "authentication port" )
+      ( sValue_Authentication_Path.c_str(), po::value<std::string>( &values.sAuthPath ), "authentication path" )
+      ( sValue_Authentication_Client_Id.c_str(), po::value<std::string>( &values.sAuthClientId ), "viessmann client id" )
+      ( sValue_Authentication_Redirect.c_str(), po::value<std::string>( &values.sAuthRedirect ), "redirect with token available" )
 
-      //( sValue_Url_Api.c_str(), po::value<std::string>( &values.sUrlApi ), "access to api" ) // don't know if this is diferent from previous
-      ( sValue_Url_Redirect.c_str(), po::value<std::string>( &values.sUrlRedirect ), "redirect with token availbale" )
-
+      ( sValue_Api_FQDN.c_str(), po::value<std::string>( &values.sApiFQDN ), "access to api host" )
+      ( sValue_Api_Port.c_str(), po::value<std::string>( &values.sApiPort ), "access to api port" )
       ;
     po::variables_map vm;
     //po::store( po::parse_command_line( argc, argv, config ), vm );
@@ -111,19 +112,20 @@ bool Load( const std::string& sFileName, Values& values ) {
     else {
       po::store( po::parse_config_file( ifs, config), vm );
 
-      bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_FQDN, values.sAuthFQDN );
-      bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_Port, values.sAuthPort );
-      bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_Path, values.sAuthPath );
-      bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_Client_Id, values.sAuthClientId );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Content_Directory, values.sContentDirectory );
 
       bOk &= parse<uint16_t>( sFileName, vm, sValue_Listen_Port, values.nListenPort );
       bOk &= parse<std::string>( sFileName, vm, sValue_Listen_Address, values.sListenAddress );
 
-      bOk &= parse<std::string>( sFileName, vm, sValue_Content_Directory, values.sContentDirectory );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_FQDN, values.sAuthFQDN );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_Port, values.sAuthPort );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_Path, values.sAuthPath );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_Client_Id, values.sAuthClientId );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_Redirect, values.sAuthRedirect );
 
-      //bOk &= parse<std::string>( sFileName, vm, sValue_Url_Api, values.sUrlApi );
-      bOk &= parse<std::string>( sFileName, vm, sValue_Url_Redirect, values.sUrlRedirect );
 
+      bOk &= parse<std::string>( sFileName, vm, sValue_Api_FQDN, values.sApiFQDN );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Api_Port, values.sApiPort );
     }
   }
   catch( std::exception& e ) {

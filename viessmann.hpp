@@ -53,5 +53,6 @@ private:
   uint32_t m_nExpires;
 
   void api();
+  void refresh_access_token();
 
 };

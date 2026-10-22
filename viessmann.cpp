@@ -136,6 +136,10 @@ void viessmann::iam( const std::string_view svCode ) {
           m_sRefreshToken = boost::json::value_to<std::string>( obj.at( "refresh_token" ) );
           m_nExpires = boost::json::value_to<uint32_t>( obj.at( "expires_in" ) );
 
+          // https://api.viessmann-climatesolutions.com/documentation/static/authentication
+          // For refresh tokens, the TTL is 15552000 seconds (180 days).
+          BOOST_LOG_TRIVIAL(info) << "step 2 refresh=" << m_sRefreshToken;
+
           api();
         }
         else {
@@ -161,3 +165,57 @@ void viessmann::api() {
     }
   );
 }
+
+void viessmann::refresh_access_token() {
+
+  boost::urls::url url;
+  url.set_encoded_path( m_choices.sAuthPath );
+  boost::urls::params_ref params( url.params() );
+  params.append(
+    {
+      { "client_id", m_choices.sAuthClientId },
+      { "grant_type", "refresh_token" },
+      { "refresh_token", m_sRefreshToken }
+    }
+  );
+
+  BOOST_LOG_TRIVIAL(trace) << "refresh_token: " << url.path() + "token?" + url.query();
+
+  auto request = std::make_shared<ou::rest::one_shot>( asio::make_strand( m_ioc ), ssl_context );
+  request->post(
+      m_choices.sAuthFQDN
+    , m_choices.sAuthPort
+    , [this,&url]( ou::rest::handler::pRequestStringBody_t& pRequest ){
+        pRequest->target( url.path() + "token" );
+        pRequest->body() = url.query();
+        pRequest->prepare_payload();
+        pRequest->set( http::field::content_type, "application/x-www-form-urlencoded" );
+        // is this header required for iam?
+        //pRequest->set( "Authorization", m_sTokenType + " " + m_sAccessToken );
+      }
+    , [this]( bool bStatus, int ec, const std::string& message ){
+        if ( bStatus ) {
+
+          boost::json::value jv = boost::json::parse( message );
+          boost::json::object const& obj = jv.as_object();
+
+          // how many of these are present?
+          m_sTokenType = boost::json::value_to<std::string>( obj.at( "token_type" ) );
+          m_sAccessToken = boost::json::value_to<std::string>( obj.at( "access_token" ) );
+          m_sRefreshToken = boost::json::value_to<std::string>( obj.at( "refresh_token" ) );
+          m_nExpires = boost::json::value_to<uint32_t>( obj.at( "expires_in" ) );
+
+          // https://api.viessmann-climatesolutions.com/documentation/static/authentication
+          // For refresh tokens, the TTL is 15552000 seconds (180 days).
+          BOOST_LOG_TRIVIAL(info) << "token refresh=" << m_sRefreshToken;
+
+          api();
+        }
+        else {
+          // fail
+          BOOST_LOG_TRIVIAL(info) << "token refresh status=" << bStatus << ", message=" << message;
+        }
+      }
+    );
+}
+

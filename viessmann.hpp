@@ -51,6 +51,8 @@ public:
   using fSave_t = std::function<void()>;
   void set( fSave_t&& );
 
+  void start();
+
 protected:
 private:
 

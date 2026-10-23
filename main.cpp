@@ -162,6 +162,8 @@ int main(int argc, char **argv) {
 
   std::thread m_thread;
 
+  viessmann.start();
+
   m_ioc.run();
 
   return EXIT_SUCCESS;

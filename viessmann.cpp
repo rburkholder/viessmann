@@ -26,6 +26,7 @@
 
 //#include <typeinfo>
 #include <vector>
+#include <fstream>
 #include <exception>
 
 #include <boost/log/trivial.hpp>
@@ -185,6 +186,15 @@ void viessmann::authz( const std::string_view svCode ) {
     );
 }
 
+void viessmann::start() {
+  if ( authz_required() ) {
+    BOOST_LOG_TRIVIAL(error) << "authorization required";
+  }
+  else {
+    get_installations();
+  }
+}
+
 // https://api.viessmann-climatesolutions.com/documentation/static/iot-overview
 
 void viessmann::get_installations() {
@@ -307,11 +317,17 @@ void viessmann::get_features() {
     }
   , [this]( bool bStatus, int ec, const std::string& message ){
       if ( bStatus ) {
-        BOOST_LOG_TRIVIAL(trace) << "get features: " << bStatus << ',' << ec << ',' << message;
+        //BOOST_LOG_TRIVIAL(trace) << "get features: " << bStatus << ',' << ec << ',' << message;
         json::value jv = boost::json::parse( message );
         json::object const& obj = jv.as_object();
         using vObject_t = std::vector<json::object>;
         vObject_t vData;
+
+        {
+          BOOST_LOG_TRIVIAL(info) << "saving feature";
+          std::ofstream ofs( "viessmann.feature" );
+          ofs << message;
+        }
       }
       else {
         BOOST_LOG_TRIVIAL(error) << "get features error: " << bStatus << ',' << ec << ',' << message;

@@ -19,6 +19,11 @@
  * Created: October 20, 2026 19:11:59
  */
 
+// todo
+//   write feature json, and decode
+//   acquire features in loop of 1 minute
+//   dynamically update gui with websocket
+
 //#include <typeinfo>
 #include <vector>
 #include <exception>
@@ -30,6 +35,8 @@
 
 #include <boost/url/url.hpp>
 #include <boost/url/params_ref.hpp>
+
+#include <boost/date_time/gregorian/greg_duration.hpp>
 
 #include <boost/json.hpp>
 
@@ -72,13 +79,28 @@ namespace {
 viessmann::viessmann( const config::Values& choices, asio::io_context& ioc )
 : m_choices( choices )
 , m_ioc( ioc )
+, m_fSave( nullptr )
+, m_dtAccessTokenExpiry( boost::date_time::not_a_date_time )
+, m_dtRefreshTokenExpiry( boost::date_time::not_a_date_time )
 {
 
 }
 
 viessmann::~viessmann() {};
 
-std::string viessmann::initial_url() {
+void viessmann::set( fSave_t && f ) {
+  m_fSave = std::move( f );
+}
+
+bool viessmann::authz_required() const {
+  if ( boost::date_time::not_a_date_time == m_dtAccessTokenExpiry ) {
+    return true;
+  }
+  const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+  return ( now >= m_dtAccessTokenExpiry );
+}
+
+std::string viessmann::authz_url() {
 
   m_pkce = generate_pkce();
 
@@ -107,7 +129,8 @@ std::string viessmann::initial_url() {
 
 }
 
-void viessmann::iam( const std::string_view svCode ) {
+void viessmann::authz( const std::string_view svCode ) {
+
   boost::urls::url url;
   url.set_encoded_path( m_choices.sAuthPath );
   boost::urls::params_ref params( url.params() );
@@ -144,8 +167,13 @@ void viessmann::iam( const std::string_view svCode ) {
           m_nExpires = json::value_to<uint32_t>( obj.at( "expires_in" ) );
 
           // https://api.viessmann-climatesolutions.com/documentation/static/authentication
+          const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+          m_dtAccessTokenExpiry = now + boost::posix_time::time_duration( 0, 0, m_nExpires - 10 );
+
           // For refresh tokens, the TTL is 15552000 seconds (180 days).
-          BOOST_LOG_TRIVIAL(info) << "refresh token=" << m_sRefreshToken;
+          m_dtRefreshTokenExpiry = now + boost::gregorian::date_duration( 180 - 1 );
+
+          //BOOST_LOG_TRIVIAL(info) << "refresh token=" << m_sRefreshToken;
 
           get_installations();
         }
@@ -223,6 +251,8 @@ void viessmann::get_gateways() {
         BOOST_LOG_TRIVIAL(info) << "gateway '" << m_sGatewaySerial << "': " << m_sGatewayStatus << ", changed:" << m_sGatewayLastStatusChanged;
         assert( m_nGatewaySiteId == m_nSiteId );
 
+        save();
+
         get_devices();
       }
       else {
@@ -230,6 +260,10 @@ void viessmann::get_gateways() {
       }
     }
   );
+}
+
+void viessmann::save() {
+  if ( m_fSave ) m_fSave();
 }
 
 void viessmann::get_devices() {

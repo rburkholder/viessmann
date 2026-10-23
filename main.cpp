@@ -20,10 +20,14 @@
  */
 
 #include <thread>
+#include <fstream>
 
 #include <boost/log/trivial.hpp>
 
 #include <boost/asio/io_context.hpp>
+
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
 
 #include <sol/sol.hpp>
 
@@ -41,6 +45,7 @@ namespace ssl  = asio::ssl;   // from <boost/asio/ssl.hpp>
 int main(int argc, char **argv) {
 
   std::string sConfigFilename( "viessmann.cfg" );
+  std::string sStateFileName( "viessmann.state" );
 
   BOOST_LOG_TRIVIAL(info) << "(c)2026 One Unified Net Limited";
 
@@ -103,40 +108,54 @@ int main(int argc, char **argv) {
     handle_signals( task_group ), net::detached
   );
 
-  bool bAuthorizationDone( false );
-
   viessmann viessmann( choices, m_ioc );
+
+  try {
+    BOOST_LOG_TRIVIAL(info) << "loading config ...";
+    std::ifstream ifs( sStateFileName );
+    boost::archive::text_iarchive ia(ifs);
+    ia & viessmann;
+    BOOST_LOG_TRIVIAL(info) << "loading done";
+  }
+  catch( const std::runtime_error& e ) {
+    BOOST_LOG_TRIVIAL(error) << "load exception " << e.what();
+  }
+  catch(...) {
+    BOOST_LOG_TRIVIAL(error) << "load exception (generic)";
+  }
+
+  viessmann.set(
+    [&sStateFileName,&viessmann](){
+      BOOST_LOG_TRIVIAL(info) << "saving Config ...";
+      std::ofstream ofs( sStateFileName );
+      boost::archive::text_oarchive oa(ofs);
+      oa & viessmann;
+      BOOST_LOG_TRIVIAL(info) << "saving done";
+    }
+  );
 
   // TODO: refresh token
   //   step thorugh initial acquisition
   //   perform polling
 
   LoadCustomCode(
-    [&viessmann,&bAuthorizationDone]( sol::state& ss ){
+    [&viessmann]( sol::state& ss ){
       ss.set_function(
-        "reset_authorization",
-        [&bAuthorizationDone](){
-          bAuthorizationDone = false;
-        }
-      ),
-      ss.set_function(
-        "get_viessmann_body",
-        [&viessmann,&bAuthorizationDone]()->std::string {
-          bAuthorizationDone = false;
-          return viessmann.initial_url();
+        "authz_required",
+        [&viessmann]()->bool{
+          return viessmann.authz_required();
         }
       );
       ss.set_function(
-        "authorization_done",
-        [&bAuthorizationDone]()->bool {
-          return bAuthorizationDone;
+        "get_viessmann_body",
+        [&viessmann]()->std::string {
+          return viessmann.authz_url();
         }
       );
       ss.set_function(
         "post_authorization",
-        [&viessmann,&bAuthorizationDone]( std::string_view svCode ){
-          bAuthorizationDone = true;
-          viessmann.iam( svCode );
+        [&viessmann]( std::string_view svCode ){
+          viessmann.authz( svCode );
         }
       );
     } );

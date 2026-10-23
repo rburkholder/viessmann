@@ -11,23 +11,6 @@ package.path="www/lib/?.lua"
 local h = require( 'html' )
 require( 'template' )
 
-local function show_link()
-  local output = h.Document{
-
-    lang = "en",
-    H_head( "viessmann - show link" ),
-    H_body{
-      "viessmann login: ",
-      h.a{
-        href=get_viessmann_body(),
-        --target="_blank",
-        "viessmann login"
-      }
-    }
-  }
-  return 'text/html', tostring( output )
-end
-
 local function process_code( code )
   local output = h.Document{
 
@@ -50,37 +33,24 @@ local function process_code( code )
   return 'text/html', tostring( output )
 end
 
-local function process_done( done )
+local function failure()
   local output = h.Document{
-
     lang = "en",
-    H_head( "viessmann - process done" ),
+    H_head( "viessmann - failure" ),
     H_body{
       h.div{
-        "processing is done:", type( done ), done
-      },
-      h.div{
-        h.a{
-          href="/",
-          "home"
-        }
+        "no code"
       }
-
     }
   }
   return 'text/html', tostring( output )
 end
 
 render = function()
-  local done = authorization_done()
-  if ( done ) then
-    return process_done( done )
+  local code = url_params[ "code" ]
+  if nil ~= code then
+    return process_code( code )
   else
-    local code = url_params[ "code" ]
-    if nil ~= code then
-      return process_code( code )
-    else
-      return show_link()
-    end
+    failure()
   end
 end

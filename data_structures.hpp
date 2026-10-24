@@ -55,6 +55,8 @@ struct installation_t {
   std::string sStatus;
 };
 
+using vInstallation_t = std::vector<installation_t>;
+
 struct gateway_t {
   std::string serial;
   std::string version;
@@ -65,6 +67,8 @@ struct gateway_t {
   bool bOtaOngoing;
 };
 
+using vGateway_t = std::vector<gateway_t>;
+
 struct device_t {
   std::string id;
   std::string serialGateway;
@@ -74,6 +78,8 @@ struct device_t {
   std::string sType;
   std::vector<std::string> vRole;
 };
+
+using vDevice_t = std::vector<device_t>;
 
 using variant_t = std::variant<bool, int64_t, double, std::string>;
 
@@ -101,4 +107,6 @@ struct feature_t {
   bool bReady;
   property_t property;
 };
+
+using vFeature_t = std::vector<feature_t>;
 

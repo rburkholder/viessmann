@@ -64,13 +64,10 @@ private:
 
   iam_result_t m_iam;
 
-  uint32_t m_nSiteId;
-  std::string m_sSiteStatus;
-
-  std::string m_sGatewaySerial;
-  std::string m_sGatewayLastStatusChanged;
-  std::string m_sGatewayStatus;
-  uint32_t m_nGatewaySiteId;
+  vInstallation_t m_vInstallation;
+  vGateway_t m_vGateway;
+  vDevice_t m_vDevice;
+  vFeature_t m_vFeature;
 
   boost::posix_time::ptime m_dtAccessTokenExpiry;
   boost::posix_time::ptime m_dtRefreshTokenExpiry;
@@ -90,8 +87,8 @@ private:
     ar & m_iam.sTokenType;
     ar & m_iam.sAccessToken;
     ar & m_iam.sRefreshToken;
-    ar & m_nSiteId;
-    ar & m_sGatewaySerial;
+    //ar & m_nSiteId;
+    //ar & m_sGatewaySerial;
 
     std::string dtAccessTokenExpiry( boost::posix_time::to_iso_string( m_dtAccessTokenExpiry ) );
     ar & dtAccessTokenExpiry;
@@ -106,8 +103,8 @@ private:
     ar & m_iam.sTokenType;
     ar & m_iam.sAccessToken;
     ar & m_iam.sRefreshToken;
-    ar & m_nSiteId;
-    ar & m_sGatewaySerial;
+    //ar & m_nSiteId;
+    //ar & m_sGatewaySerial;
 
     std::string dtAccessTokenExpiry;
     ar & dtAccessTokenExpiry;

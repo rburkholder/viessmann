@@ -24,6 +24,11 @@
 #include "convert_json.hpp"
 #include "data_structures.hpp"
 
+char const* no_z( json::string js ) {
+  js.pop_back();
+  return js.c_str();
+}
+
 iam_result_t tag_invoke( json::value_to_tag<iam_result_t>, json::value const& jv ) {
   json::object const& obj = jv.as_object();
   return iam_result_t {
@@ -55,7 +60,9 @@ address_t      tag_invoke( json::value_to_tag<address_t>, json::value const& jv 
 installation_t tag_invoke( json::value_to_tag<installation_t>, json::value const& jv ) {
   json::object const& obj = jv.as_object();
   const boost::posix_time::ptime dt =
-    boost::posix_time::from_iso_string( json::value_to<std::string>( obj.at( "updatedAt" ) ) );
+    boost::posix_time::from_iso_extended_string(
+      no_z( json::value_to<json::string>( obj.at( "updatedAt" ) ) )
+    );
   return installation_t {
     json::value_to<uint64_t>( obj.at( "id" ) ),
     json::value_to<std::string>( obj.at( "description" ) ),
@@ -68,7 +75,9 @@ installation_t tag_invoke( json::value_to_tag<installation_t>, json::value const
 gateway_t      tag_invoke( json::value_to_tag<gateway_t>, json::value const& jv ) {
   json::object const& obj = jv.as_object();
   const boost::posix_time::ptime dt =
-    boost::posix_time::from_iso_string( json::value_to<std::string>( obj.at( "lastStatusChangedAt" ) ) );
+    boost::posix_time::from_iso_extended_string(
+      no_z( json::value_to<json::string>( obj.at( "lastStatusChangedAt" ) ) )
+    );
   return gateway_t {
     json::value_to<std::string>( obj.at( "serial" ) ),
     json::value_to<std::string>( obj.at( "version" ) ),
@@ -83,7 +92,9 @@ gateway_t      tag_invoke( json::value_to_tag<gateway_t>, json::value const& jv 
 device_t       tag_invoke( json::value_to_tag<device_t>, json::value const& jv ) {
   json::object const& obj = jv.as_object();
   const boost::posix_time::ptime dt =
-    boost::posix_time::from_iso_string( json::value_to<std::string>( obj.at( "editedAt" ) ) );
+    boost::posix_time::from_iso_extended_string(
+      no_z( json::value_to<json::string>( obj.at( "editedAt" ) ) )
+    );
   return device_t {
     json::value_to<std::string>( obj.at( "id" ) ),
     json::value_to<std::string>( obj.at( "gatewaySerial" ) ),
@@ -144,7 +155,9 @@ property_t     tag_invoke( json::value_to_tag<property_t>, json::value const& jv
 feature_t      tag_invoke( json::value_to_tag<feature_t>, json::value const& jv ) {
   json::object const& obj = jv.as_object();
   const boost::posix_time::ptime dt =
-    boost::posix_time::from_iso_string( json::value_to<std::string>( obj.at( "timestamp" ) ) );
+    boost::posix_time::from_iso_extended_string(
+      no_z( json::value_to<json::string>( obj.at( "timestamp" ) ) )
+    );
   return feature_t {
     json::value_to<std::string>( obj.at( "feature" ) ),
     json::value_to<std::string>( obj.at( "deviceId" ) ),

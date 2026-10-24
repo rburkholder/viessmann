@@ -174,6 +174,8 @@ void viessmann::authz( const std::string_view svCode ) {
 
           //BOOST_LOG_TRIVIAL(info) << "refresh token=" << m_sRefreshToken;
 
+          save();
+
           get_installations();
         }
         else {
@@ -207,18 +209,13 @@ void viessmann::get_installations() {
   , [this]( bool bStatus, int ec, const std::string& message ){
       if ( bStatus ) {
         try {
-          //BOOST_LOG_TRIVIAL(trace) << "step 3: " << bStatus << ',' << ec << ',' << message;
+          //BOOST_LOG_TRIVIAL(trace) << "installations: " << bStatus << ',' << ec << ',' << message;
           boost::system::error_code jec;
           json::value jv = boost::json::parse( message, jec );
           json::object const& obj = jv.as_object();
-          using vObject_t = std::vector<json::object>;
-          vObject_t vData;
-          vData = json::value_to<vObject_t>( obj.at( "data" ) );
-          assert( 1 <= vData.size() );
-          json::object site = vData[ 0 ];
-          m_nSiteId = json::value_to<uint64_t>( site.at( "id" ) );
-          m_sSiteStatus = json::value_to<std::string>( site.at( "aggregatedStatus") );
-          BOOST_LOG_TRIVIAL(info) << "site " << m_nSiteId << ": " << m_sSiteStatus;
+          m_vInstallation = json::value_to<vInstallation_t>( obj.at( "data" ) );
+          assert( 1 <= m_vInstallation.size() );
+          //BOOST_LOG_TRIVIAL(info) << "site " << m_nSiteId << ": " << m_sSiteStatus;
 
           get_gateways();
         }
@@ -249,19 +246,12 @@ void viessmann::get_gateways() {
         boost::system::error_code jec;
         json::value jv = boost::json::parse( message, jec );
         json::object const& obj = jv.as_object();
-        using vObject_t = std::vector<json::object>;
-        vObject_t vData;
-        vData = json::value_to<vObject_t>( obj.at( "data" ) );
-        assert( 1 <= vData.size() );
-        json::object site = vData[ 0 ];
-        m_nGatewaySiteId = json::value_to<uint64_t>( site.at( "installationId" ) );
-        m_sGatewaySerial = json::value_to<std::string>( site.at( "serial") );
-        m_sGatewayLastStatusChanged = json::value_to<std::string>( site.at( "lastStatusChangedAt") );
-        m_sGatewayStatus = json::value_to<std::string>( site.at( "aggregatedStatus") );
-        BOOST_LOG_TRIVIAL(info) << "gateway '" << m_sGatewaySerial << "': " << m_sGatewayStatus << ", changed:" << m_sGatewayLastStatusChanged;
-        assert( m_nGatewaySiteId == m_nSiteId );
+        m_vGateway = json::value_to<vGateway_t>( obj.at( "data" ) );
+        assert( 1 <= m_vGateway.size() );
+        //BOOST_LOG_TRIVIAL(info) << "gateway '" << m_sGatewaySerial << "': " << m_sGatewayStatus << ", changed:" << m_sGatewayLastStatusChanged;
+        //assert( m_nGatewaySiteId == m_nSiteId );
 
-        save();
+        //save();
 
         get_devices();
       }
@@ -282,7 +272,12 @@ void viessmann::get_devices() {
     m_choices.sApiFQDN
   , m_choices.sApiPort
   , [this]( ou::rest::handler::pRequestEmptyBody_t& pRequest ){
-      const std::string target( fmt::format( "/iot/v2/equipment/installations/{}/gateways/{}/devices", m_nSiteId, m_sGatewaySerial ) );
+      const std::string target(
+        fmt::format(
+          "/iot/v2/equipment/installations/{}/gateways/{}/devices",
+          m_vInstallation[0].id, m_vGateway[ 0 ].serial
+        )
+      );
       BOOST_LOG_TRIVIAL(trace) << "devices request: '" << target << "'";
       pRequest->target( target );
       pRequest->set( "Authorization", m_iam.sTokenType + " " + m_iam.sAccessToken );
@@ -293,8 +288,7 @@ void viessmann::get_devices() {
         boost::system::error_code jec;
         json::value jv = boost::json::parse( message, jec );
         json::object const& obj = jv.as_object();
-        using vObject_t = std::vector<json::object>;
-        vObject_t vData;
+        m_vDevice = json::value_to<vDevice_t>( obj.at( "data" ) );
 
         get_features();
       }
@@ -311,7 +305,11 @@ void viessmann::get_features() {
     m_choices.sApiFQDN
   , m_choices.sApiPort
   , [this]( ou::rest::handler::pRequestEmptyBody_t& pRequest ){
-      const std::string target( fmt::format( "/iot/v2/features/installations/{}/gateways/{}/devices/{}/features", m_nSiteId, m_sGatewaySerial, "0" ) );
+      const std::string target(
+        fmt::format(
+          "/iot/v2/features/installations/{}/gateways/{}/devices/{}/features",
+          m_vInstallation[0].id, m_vGateway[ 0 ].serial, "0" )
+      );
       BOOST_LOG_TRIVIAL(trace) << "features request: '" << target << "'";
       pRequest->target( target );
       pRequest->set( "Authorization", m_iam.sTokenType + " " + m_iam.sAccessToken );
@@ -322,8 +320,7 @@ void viessmann::get_features() {
         boost::system::error_code jec;
         json::value jv = boost::json::parse( message, jec );
         json::object const& obj = jv.as_object();
-        using vObject_t = std::vector<json::object>;
-        vObject_t vData;
+        m_vFeature = json::value_to<vFeature_t>( obj.at( "data" ) );
 
         {
           BOOST_LOG_TRIVIAL(info) << "saving feature";

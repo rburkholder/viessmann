@@ -23,6 +23,8 @@ find_package(Boost ${TF_BOOST_VERSION} REQUIRED COMPONENTS program_options syste
 set(
   file_hpp
     config.hpp
+    convert_json.hpp
+    data_structures.hpp
     pkce.hpp
     viessmann.hpp
   )
@@ -30,6 +32,7 @@ set(
 set(
   file_cpp
     config.cpp
+    convert_json.cpp
     main.cpp
     pkce.cpp
     viessmann.cpp

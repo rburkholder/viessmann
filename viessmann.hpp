@@ -28,12 +28,13 @@
 #include <boost/serialization/version.hpp>
 #include <boost/serialization/split_member.hpp>
 
+#include <boost/date_time/posix_time/ptime.hpp>
 #include <boost/date_time/posix_time/time_parsers.hpp>
 #include <boost/date_time/posix_time/time_formatters.hpp>
-#include <boost/date_time/posix_time/posix_time_types.hpp>
 
 #include "pkce.hpp"
 #include "config.hpp"
+#include "data_structures.hpp"
 
 namespace asio = boost::asio; // from <boost/asio/context.hpp>
 
@@ -61,10 +62,7 @@ private:
 
   PkcePair m_pkce;
 
-  std::string m_sTokenType;
-  std::string m_sAccessToken;
-  std::string m_sRefreshToken;
-  uint32_t m_nExpires;
+  iam_result_t m_iam;
 
   uint32_t m_nSiteId;
   std::string m_sSiteStatus;
@@ -89,9 +87,9 @@ private:
   template<typename Archive>
   void save( Archive& ar, const unsigned int version ) const {
 
-    ar & m_sTokenType;
-    ar & m_sAccessToken;
-    ar & m_sRefreshToken;
+    ar & m_iam.sTokenType;
+    ar & m_iam.sAccessToken;
+    ar & m_iam.sRefreshToken;
     ar & m_nSiteId;
     ar & m_sGatewaySerial;
 
@@ -105,9 +103,9 @@ private:
   template<typename Archive>
   void load( Archive& ar, const unsigned int version ) {
 
-    ar & m_sTokenType;
-    ar & m_sAccessToken;
-    ar & m_sRefreshToken;
+    ar & m_iam.sTokenType;
+    ar & m_iam.sAccessToken;
+    ar & m_iam.sRefreshToken;
     ar & m_nSiteId;
     ar & m_sGatewaySerial;
 

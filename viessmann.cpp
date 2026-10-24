@@ -20,7 +20,6 @@
  */
 
 // todo
-//   write feature json, and decode
 //   acquire features in loop of 1 minute
 //   dynamically update gui with websocket
 
@@ -46,6 +45,7 @@
 #include <ou/rest/one_shot.hpp>
 
 #include "viessmann.hpp"
+#include "convert_json.hpp"
 
 namespace asio = boost::asio; // from <boost/asio/context.hpp>
 namespace ssl  = asio::ssl;   // from <boost/asio/ssl.hpp>
@@ -158,18 +158,16 @@ void viessmann::authz( const std::string_view svCode ) {
         pRequest->set( http::field::content_type, "application/x-www-form-urlencoded" );
       }
     , [this]( bool bStatus, int ec, const std::string& message ){
+        //BOOST_LOG_TRIVIAL(error) << "iam request=" << bStatus << ", message=" << message;
         if ( bStatus ) {
-          json::value jv = boost::json::parse( message );
-          json::object const& obj = jv.as_object();
+          boost::system::error_code jec;
+          json::value jv = boost::json::parse( message, jec );
 
-          m_sTokenType = json::value_to<std::string>( obj.at( "token_type" ) );
-          m_sAccessToken = json::value_to<std::string>( obj.at( "access_token" ) );
-          m_sRefreshToken = json::value_to<std::string>( obj.at( "refresh_token" ) );
-          m_nExpires = json::value_to<uint32_t>( obj.at( "expires_in" ) );
+          m_iam = json::value_to<iam_result_t>( jv );
 
           // https://api.viessmann-climatesolutions.com/documentation/static/authentication
           const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-          m_dtAccessTokenExpiry = now + boost::posix_time::time_duration( 0, 0, m_nExpires - 10 );
+          m_dtAccessTokenExpiry = now + boost::posix_time::time_duration( 0, 0, m_iam.nSecondsToExpiry - 10 );
 
           // For refresh tokens, the TTL is 15552000 seconds (180 days).
           m_dtRefreshTokenExpiry = now + boost::gregorian::date_duration( 180 - 1 );
@@ -204,20 +202,21 @@ void viessmann::get_installations() {
   , m_choices.sApiPort
   , [this]( ou::rest::handler::pRequestEmptyBody_t& pRequest ){
       pRequest->target( "/iot/v2/equipment/installations" );
-      pRequest->set( "Authorization", m_sTokenType + " " + m_sAccessToken );
+      pRequest->set( "Authorization", m_iam.sTokenType + " " + m_iam.sAccessToken );
     }
   , [this]( bool bStatus, int ec, const std::string& message ){
       if ( bStatus ) {
         try {
           //BOOST_LOG_TRIVIAL(trace) << "step 3: " << bStatus << ',' << ec << ',' << message;
-          json::value jv = boost::json::parse( message );
+          boost::system::error_code jec;
+          json::value jv = boost::json::parse( message, jec );
           json::object const& obj = jv.as_object();
           using vObject_t = std::vector<json::object>;
           vObject_t vData;
           vData = json::value_to<vObject_t>( obj.at( "data" ) );
           assert( 1 <= vData.size() );
           json::object site = vData[ 0 ];
-          m_nSiteId = json::value_to<uint32_t>( site.at( "id" ) );
+          m_nSiteId = json::value_to<uint64_t>( site.at( "id" ) );
           m_sSiteStatus = json::value_to<std::string>( site.at( "aggregatedStatus") );
           BOOST_LOG_TRIVIAL(info) << "site " << m_nSiteId << ": " << m_sSiteStatus;
 
@@ -242,19 +241,20 @@ void viessmann::get_gateways() {
   , m_choices.sApiPort
   , [this]( ou::rest::handler::pRequestEmptyBody_t& pRequest ){
       pRequest->target( "/iot/v2/equipment/gateways" );
-      pRequest->set( "Authorization", m_sTokenType + " " + m_sAccessToken );
+      pRequest->set( "Authorization", m_iam.sTokenType + " " + m_iam.sAccessToken );
     }
   , [this]( bool bStatus, int ec, const std::string& message ){
       if ( bStatus ) {
         //BOOST_LOG_TRIVIAL(trace) << "get gateways: " << bStatus << ',' << ec << ',' << message;
-        json::value jv = boost::json::parse( message );
+        boost::system::error_code jec;
+        json::value jv = boost::json::parse( message, jec );
         json::object const& obj = jv.as_object();
         using vObject_t = std::vector<json::object>;
         vObject_t vData;
         vData = json::value_to<vObject_t>( obj.at( "data" ) );
         assert( 1 <= vData.size() );
         json::object site = vData[ 0 ];
-        m_nGatewaySiteId = json::value_to<uint32_t>( site.at( "installationId" ) );
+        m_nGatewaySiteId = json::value_to<uint64_t>( site.at( "installationId" ) );
         m_sGatewaySerial = json::value_to<std::string>( site.at( "serial") );
         m_sGatewayLastStatusChanged = json::value_to<std::string>( site.at( "lastStatusChangedAt") );
         m_sGatewayStatus = json::value_to<std::string>( site.at( "aggregatedStatus") );
@@ -285,12 +285,13 @@ void viessmann::get_devices() {
       const std::string target( fmt::format( "/iot/v2/equipment/installations/{}/gateways/{}/devices", m_nSiteId, m_sGatewaySerial ) );
       BOOST_LOG_TRIVIAL(trace) << "devices request: '" << target << "'";
       pRequest->target( target );
-      pRequest->set( "Authorization", m_sTokenType + " " + m_sAccessToken );
+      pRequest->set( "Authorization", m_iam.sTokenType + " " + m_iam.sAccessToken );
     }
   , [this]( bool bStatus, int ec, const std::string& message ){
       if ( bStatus ) {
         //BOOST_LOG_TRIVIAL(trace) << "get devices: " << bStatus << ',' << ec << ',' << message;
-        json::value jv = boost::json::parse( message );
+        boost::system::error_code jec;
+        json::value jv = boost::json::parse( message, jec );
         json::object const& obj = jv.as_object();
         using vObject_t = std::vector<json::object>;
         vObject_t vData;
@@ -313,12 +314,13 @@ void viessmann::get_features() {
       const std::string target( fmt::format( "/iot/v2/features/installations/{}/gateways/{}/devices/{}/features", m_nSiteId, m_sGatewaySerial, "0" ) );
       BOOST_LOG_TRIVIAL(trace) << "features request: '" << target << "'";
       pRequest->target( target );
-      pRequest->set( "Authorization", m_sTokenType + " " + m_sAccessToken );
+      pRequest->set( "Authorization", m_iam.sTokenType + " " + m_iam.sAccessToken );
     }
   , [this]( bool bStatus, int ec, const std::string& message ){
       if ( bStatus ) {
         //BOOST_LOG_TRIVIAL(trace) << "get features: " << bStatus << ',' << ec << ',' << message;
-        json::value jv = boost::json::parse( message );
+        boost::system::error_code jec;
+        json::value jv = boost::json::parse( message, jec );
         json::object const& obj = jv.as_object();
         using vObject_t = std::vector<json::object>;
         vObject_t vData;
@@ -345,7 +347,7 @@ void viessmann::refresh_access_token() {
     {
       { "client_id", m_choices.sAuthClientId },
       { "grant_type", "refresh_token" },
-      { "refresh_token", m_sRefreshToken }
+      { "refresh_token", m_iam.sRefreshToken }
     }
   );
 
@@ -366,18 +368,21 @@ void viessmann::refresh_access_token() {
     , [this]( bool bStatus, int ec, const std::string& message ){
         if ( bStatus ) {
 
-          boost::json::value jv = boost::json::parse( message );
-          boost::json::object const& obj = jv.as_object();
+          boost::system::error_code jec;
+          json::value jv = boost::json::parse( message, jec );
 
-          // how many of these are present?
-          m_sTokenType = boost::json::value_to<std::string>( obj.at( "token_type" ) );
-          m_sAccessToken = boost::json::value_to<std::string>( obj.at( "access_token" ) );
-          m_sRefreshToken = boost::json::value_to<std::string>( obj.at( "refresh_token" ) );
-          m_nExpires = boost::json::value_to<uint32_t>( obj.at( "expires_in" ) );
+          m_iam = json::value_to<iam_result_t>( jv );
+
+          // https://api.viessmann-climatesolutions.com/documentation/static/authentication
+          const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+          m_dtAccessTokenExpiry = now + boost::posix_time::time_duration( 0, 0, m_iam.nSecondsToExpiry - 10 );
+
+          // For refresh tokens, the TTL is 15552000 seconds (180 days).
+          m_dtRefreshTokenExpiry = now + boost::gregorian::date_duration( 180 - 1 );
 
           // https://api.viessmann-climatesolutions.com/documentation/static/authentication
           // For refresh tokens, the TTL is 15552000 seconds (180 days).
-          BOOST_LOG_TRIVIAL(info) << "token refresh=" << m_sRefreshToken;
+          BOOST_LOG_TRIVIAL(info) << "token refresh=" << m_iam.sRefreshToken;
 
         }
         else {

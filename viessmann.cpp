@@ -44,6 +44,7 @@
 
 #include <fmt/format.h>
 
+#include <ou/mqtt/mqtt.hpp>
 #include <ou/rest/one_shot.hpp>
 
 #include "viessmann.hpp"
@@ -88,10 +89,18 @@ viessmann::viessmann( const config::Values& choices, asio::io_context& ioc )
 , m_dtAccessTokenExpiry( boost::date_time::not_a_date_time )
 , m_dtRefreshTokenExpiry( boost::date_time::not_a_date_time )
 {
-
+  try {
+    m_pMqtt = std::make_unique<ou::Mqtt>( choices.mqtt );
+  }
+  catch ( const ou::Mqtt::runtime_error& e ) {
+    BOOST_LOG_TRIVIAL(error) << "mqtt error: " << e.what() << '(' << e.rc << ')';
+    throw e;
+  }
 }
 
-viessmann::~viessmann() {};
+viessmann::~viessmann() {
+  m_pMqtt.reset();
+};
 
 void viessmann::set( fSave_t && f ) {
   m_fSave = std::move( f );
@@ -339,6 +348,63 @@ void viessmann::get_features() {
               std::ofstream ofs( "viessmann.feature.json" );
               ofs << message;
             }
+
+
+            json::object objMqtt;
+
+            for ( const feature_t& feature: m_vFeature ) {
+              try {
+                switch ( feature.property.value.type ) {
+                  case value_type_t::boolean:
+                    {
+                      bool b( std::get<bool>( feature.property.value.value ) );
+                      objMqtt[ feature.sName ] = { { "value", b } };
+                      BOOST_LOG_TRIVIAL(trace) << feature.sName << ": " << b;
+                    }
+                    break;
+                  case value_type_t::int_:
+                    {
+                      int64_t int_( std::get<int64_t>( feature.property.value.value ) );
+                      objMqtt[ feature.sName ] = { { "value", int_ }, { "units", feature.property.value.unit } };
+                      BOOST_LOG_TRIVIAL(trace) << feature.sName << ": " << int_ << ' ' << feature.property.value.unit;
+                    }
+                    break;
+                  case value_type_t::dbl_:
+                    {
+                      double dbl( std::get<double>( feature.property.value.value ) );
+                      objMqtt[ feature.sName ] = { { "value", dbl }, { "units", feature.property.value.unit } };
+                      BOOST_LOG_TRIVIAL(trace) << feature.sName << ": " << dbl << ' ' << feature.property.value.unit;
+                    }
+                    break;
+                  case value_type_t::string:
+                    {
+                      const std::string& s( std::get<std::string>( feature.property.value.value ) );
+                      objMqtt[ feature.sName ] = { { "value", s } };
+                      BOOST_LOG_TRIVIAL(trace) << feature.sName << ": \"" << s << '"';
+                    }
+                    break;
+                  default:
+                    //BOOST_LOG_TRIVIAL(trace) << feature.sName << "='" << (int)feature.property.value.type << "' " << feature.property.value.unit;
+                    break;
+                }
+              }
+              catch ( const std::exception& e ) {
+                BOOST_LOG_TRIVIAL(error) << "output error (" << feature.sName << "): " << e.what();
+              }
+            }
+
+            BOOST_LOG_TRIVIAL(trace) << "json: " << json::serialize( objMqtt );
+
+            m_pMqtt->Publish(
+              m_choices.mqtt.sTopic,
+              json::serialize( objMqtt ),
+              []( bool bStatus, int code ){
+                if ( bStatus ); // ok
+                else {
+                  BOOST_LOG_TRIVIAL(error) << "mqtt publish error: " << code;
+                }
+              } );
+
           }
           else {
             //viessmann_error_t = json::value_to<vFeature_t>( obj );
@@ -508,7 +574,7 @@ void viessmann::refresh_access_token() {
 
           // https://api.viessmann-climatesolutions.com/documentation/static/authentication
           // For refresh tokens, the TTL is 15552000 seconds (180 days).
-          BOOST_LOG_TRIVIAL(info) << "refresh token=" << m_iam.sRefreshToken;
+          //BOOST_LOG_TRIVIAL(info) << "refresh token=" << m_iam.sRefreshToken;
 
         }
         else {

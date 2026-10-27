@@ -46,6 +46,12 @@ namespace {
   static const std::string sValue_Api_FQDN( "api_fqdn" );
   static const std::string sValue_Api_Port( "api_port" );
 
+  static const std::string sValue_Mqtt_Id( "mqtt_id" );
+  static const std::string sValue_Mqtt_Host( "mqtt_host" );
+  static const std::string sValue_Mqtt_UserName( "mqtt_username" );
+  static const std::string sValue_Mqtt_Password( "mqtt_password" );
+  static const std::string sValue_Mqtt_Topic( "mqtt_topic" );
+
   //template<typename T>
   //void log( const std::string& name, typename std::enable_if<std::is_pod<T&>::value>::type& dest ) {
   //  BOOST_LOG_TRIVIAL(info) << name << " = " << dest;
@@ -99,6 +105,12 @@ bool Load( const std::string& sFileName, Values& values ) {
 
       ( sValue_Api_FQDN.c_str(), po::value<std::string>( &values.sApiFQDN ), "access to api host" )
       ( sValue_Api_Port.c_str(), po::value<std::string>( &values.sApiPort ), "access to api port" )
+
+      ( sValue_Mqtt_Id.c_str(), po::value<std::string>( &values.mqtt.sId ), "mqtt client id" )
+      ( sValue_Mqtt_Host.c_str(), po::value<std::string>( &values.mqtt.sHost )->default_value( "localhost" ), "mqtt host address or name" )
+      ( sValue_Mqtt_UserName.c_str(), po::value<std::string>( &values.mqtt.sUserName ), "mqtt username" )
+      ( sValue_Mqtt_Password.c_str(), po::value<std::string>( &values.mqtt.sPassword ), "mqtt password" )
+      ( sValue_Mqtt_Topic.c_str(), po::value<std::string>( &values.mqtt.sTopic )->default_value( "analog_in" ), "mqtt topic" )
       ;
     po::variables_map vm;
     //po::store( po::parse_command_line( argc, argv, config ), vm );
@@ -123,10 +135,14 @@ bool Load( const std::string& sFileName, Values& values ) {
       bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_Client_Id, values.sAuthClientId );
       bOk &= parse<std::string>( sFileName, vm, sValue_Authentication_Redirect, values.sAuthRedirect );
 
-
       bOk &= parse<std::string>( sFileName, vm, sValue_Api_FQDN, values.sApiFQDN );
       bOk &= parse<std::string>( sFileName, vm, sValue_Api_Port, values.sApiPort );
-    }
+
+      bOk &= parse<std::string>( sFileName, vm, sValue_Mqtt_Id, values.mqtt.sId );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Mqtt_Host, values.mqtt.sHost );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Mqtt_UserName, values.mqtt.sUserName );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Mqtt_Password, values.mqtt.sPassword );
+      bOk &= parse<std::string>( sFileName, vm, sValue_Mqtt_Topic, values.mqtt.sTopic );    }
   }
   catch( std::exception& e ) {
     BOOST_LOG_TRIVIAL(error) << sFileName << " parse error: " << e.what();

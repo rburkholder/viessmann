@@ -83,14 +83,16 @@ using vDevice_t = std::vector<device_t>;
 
 using variant_t = std::variant<bool, int64_t, double, std::string>;
 
+enum class value_type_t { string, number, array, Schedule, boolean, MaterialIdEntry, VinEntry, dbl_, int_ };
+
 struct value_t {
-  std::string sType; // convert to enum
+  value_type_t type;
   variant_t value;
-  std::string sUnit;
+  std::string unit;
 };
 
 struct status_t {
-  std::string sType; // convert ot enum
+  std::string sType; // convert to enum
   variant_t value;
 };
 

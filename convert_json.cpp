@@ -19,14 +19,38 @@
  * Created: October 23, 2026 20:26:22
  */
 
+#include <boost/parser/parser.hpp>
+
 #include <boost/date_time/posix_time/time_parsers.hpp>
 
 #include "convert_json.hpp"
 #include "data_structures.hpp"
 
-char const* no_z( json::string js ) {
-  js.pop_back();
-  return js.c_str();
+//
+namespace {
+
+  char const* no_z( json::string js ) {
+    js.pop_back();
+    return js.c_str();
+  }
+
+  boost::parser::symbols<value_type_t> const lu_type = {
+    { "boolean", value_type_t::boolean },
+    { "number", value_type_t::number },
+    { "string", value_type_t::string },
+    { "array", value_type_t::array },
+    { "Schedule", value_type_t::Schedule },
+    { "VinEntry", value_type_t::VinEntry },
+    { "MaterialIdEntry", value_type_t::MaterialIdEntry },
+    // dbl_ not in source material
+    // int_ not in source material
+  };
+
+  boost::parser::symbols<bool> const lu_bool = {
+    { "true", true },
+    { "false", false }
+  };
+
 }
 
 iam_result_t tag_invoke( json::value_to_tag<iam_result_t>, json::value const& jv ) {
@@ -106,19 +130,67 @@ device_t       tag_invoke( json::value_to_tag<device_t>, json::value const& jv )
   };
 }
 value_t        tag_invoke( json::value_to_tag<value_t>, json::value const& jv ) {
+
   json::object const& obj = jv.as_object();
-  value_t value {
-    json::value_to<std::string>( obj.at( "type" ) ),
-    0,
-    ""
-  };
-  if ( obj.contains( "value" ) ) {
-    //value.value = json::value_to<std::string>( obj.at( "unit" ) );
-    value.value = 0;
-  }
+
+  std::string sUnit;
   if ( obj.contains( "unit" ) ) {
-    value.sUnit = json::value_to<std::string>( obj.at( "unit" ) );
+    sUnit = json::value_to<std::string>( obj.at( "unit" ) );
   }
+
+  const std::string sType( json::value_to<std::string_view>( obj.at( "type" ) ) );
+
+  auto const vt_parser = lu_type >> boost::parser::eoi;
+  auto const result = boost::parser::parse( sType, vt_parser );
+  assert( result );
+  const value_type_t vt( *result );
+
+  value_t value;
+
+  switch ( vt ) {
+    case value_type_t::boolean:
+      {
+        bool b( json::value_to<bool>( obj.at( "value" ) ) );
+        if ( false ) {
+          const std::string sValue( json::value_to<std::string>( obj.at( "value" ) ) );
+          auto const bool_parser = lu_bool >> boost::parser::eoi;
+          auto const result = boost::parser::parse( sValue, bool_parser );
+          assert( result );
+          const bool b( *result );
+        }
+        value = value_t { vt, b, sUnit };
+      }
+      break;
+    case value_type_t::number:
+      {
+        //const std::string sValue( json::value_to<std::string>( obj.at( "value" ) ) );
+        try {
+          int64_t num( json::value_to<int64_t>( obj.at( "value" ) ) );
+          value = value_t { value_type_t::int_, num, sUnit };
+        }
+        catch (...) {
+          double num( json::value_to<double>( obj.at( "value" ) ) );
+          value = value_t { value_type_t::dbl_, num, sUnit };
+        }
+      }
+      break;
+    case value_type_t::string:
+      {
+        const std::string sValue( json::value_to<std::string>( obj.at( "value" ) ) );
+        value = value_t {
+          vt, std::move( sValue ), sUnit
+        };
+      }
+      break;
+    case value_type_t::array:
+      //break;
+    default:
+      value = value_t {
+        vt, 0, sUnit
+      };
+      break;
+  }
+
   return value;
 }
 

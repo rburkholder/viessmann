@@ -25,6 +25,8 @@
 
 #include <string>
 
+#include <ou/mqtt/config.hpp>
+
 namespace config {
 
 struct Values {
@@ -43,6 +45,8 @@ struct Values {
 
   std::string sApiFQDN;
   std::string sApiPort;
+
+  ou::mqtt::Config mqtt;
 
 };
 

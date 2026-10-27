@@ -67,8 +67,10 @@ target_link_libraries(
     #libou_mqtt.a
     ou_rest.a
     ou_anomalon.a
-    luajit-5.1
+    ou_mqtt.a
+    paho-mqtt3c.a
     fmt.a
+    luajit-5.1
     ${Boost_LIBRARIES}
     sodium
     crypto

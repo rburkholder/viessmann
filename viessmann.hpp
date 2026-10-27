@@ -39,6 +39,10 @@
 
 namespace asio = boost::asio; // from <boost/asio/context.hpp>
 
+namespace ou {
+  class Mqtt;
+}
+
 class viessmann {
   friend class boost::serialization::access;
 public:
@@ -89,6 +93,8 @@ private:
   void set_refresh_access_token_full_duration();
   void set_timer_refresh_access_token();
   void start_renewal_delay( const boost::posix_time::time_duration seconds );
+
+  std::unique_ptr<ou::Mqtt> m_pMqtt;
 
   template<typename Archive>
   void save( Archive& ar, const unsigned int version ) const {

@@ -167,3 +167,24 @@ feature_t      tag_invoke( json::value_to_tag<feature_t>, json::value const& jv 
     json::value_to<property_t>( obj.at( "properties" ) ),
   };
 }
+
+extended_payload_t tag_invoke( json::value_to_tag<extended_payload_t>, json::value const& jv ) {
+  json::object const& obj = jv.as_object();
+  return extended_payload_t {
+    json::value_to<std::string>( obj.at( "httpStatusCode" ) ),
+    json::value_to<std::string>( obj.at( "code" ) ),
+    json::value_to<std::string>( obj.at( "reason" ) ),
+    json::value_to<std::string>( obj.at( "message" ) )
+  };
+}
+
+viessmann_error_t tag_invoke( json::value_to_tag<viessmann_error_t>, json::value const& jv ) {
+  json::object const& obj = jv.as_object();
+  return viessmann_error_t {
+    json::value_to<std::string>( obj.at( "viErrorId" ) ),
+    json::value_to<uint64_t>( obj.at( "statusCode" ) ),
+    json::value_to<std::string>( obj.at( "errorType" ) ),
+    json::value_to<std::string>( obj.at( "message" ) ),
+    json::value_to<extended_payload_t>( obj.at( "extendedPayload" ) )
+  };
+}

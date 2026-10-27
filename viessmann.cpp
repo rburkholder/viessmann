@@ -20,11 +20,13 @@
  */
 
 // todo
-//   acquire features in loop of 1 minute
+//   transmit to mqtt
 //   dynamically update gui with websocket
+//   switch from m_ioc to task_group, to handle cancellation signal?
+
+// really need local access.  the api went under maintenance starting at 19:00 2026/10/24
 
 //#include <typeinfo>
-#include <vector>
 #include <fstream>
 #include <exception>
 
@@ -80,6 +82,8 @@ namespace {
 viessmann::viessmann( const config::Values& choices, asio::io_context& ioc )
 : m_choices( choices )
 , m_ioc( ioc )
+, m_timerFeature( ioc )
+, m_timerTokenRefresh( ioc )
 , m_fSave( nullptr )
 , m_dtAccessTokenExpiry( boost::date_time::not_a_date_time )
 , m_dtRefreshTokenExpiry( boost::date_time::not_a_date_time )
@@ -97,7 +101,7 @@ bool viessmann::authz_required() const {
   if ( boost::date_time::not_a_date_time == m_dtAccessTokenExpiry ) {
     return true;
   }
-  const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+  const boost::posix_time::ptime now( boost::posix_time::microsec_clock::universal_time() );
   return ( now >= m_dtAccessTokenExpiry );
 }
 
@@ -163,20 +167,19 @@ void viessmann::authz( const std::string_view svCode ) {
           boost::system::error_code jec;
           json::value jv = boost::json::parse( message, jec );
 
+          BOOST_LOG_TRIVIAL(info) << "refresh token=" << m_iam.sRefreshToken;
+
           m_iam = json::value_to<iam_result_t>( jv );
 
-          // https://api.viessmann-climatesolutions.com/documentation/static/authentication
-          const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-          m_dtAccessTokenExpiry = now + boost::posix_time::time_duration( 0, 0, m_iam.nSecondsToExpiry - 10 );
+          set_refresh_access_token_full_duration();
 
           // For refresh tokens, the TTL is 15552000 seconds (180 days).
+          const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
           m_dtRefreshTokenExpiry = now + boost::gregorian::date_duration( 180 - 1 );
-
-          //BOOST_LOG_TRIVIAL(info) << "refresh token=" << m_sRefreshToken;
 
           save();
 
-          get_installations();
+          start();
         }
         else {
           // fail
@@ -191,8 +194,14 @@ void viessmann::start() {
     BOOST_LOG_TRIVIAL(error) << "authorization required";
   }
   else {
+    set_timer_refresh_access_token();
     get_installations();
   }
+}
+
+void viessmann::stop() {
+  auto count = m_timerFeature.cancel();
+  BOOST_LOG_TRIVIAL(info) << "feature timer operations cancelled: " << count;
 }
 
 // https://api.viessmann-climatesolutions.com/documentation/static/iot-overview
@@ -317,16 +326,42 @@ void viessmann::get_features() {
   , [this]( bool bStatus, int ec, const std::string& message ){
       if ( bStatus ) {
         //BOOST_LOG_TRIVIAL(trace) << "get features: " << bStatus << ',' << ec << ',' << message;
-        boost::system::error_code jec;
-        json::value jv = boost::json::parse( message, jec );
-        json::object const& obj = jv.as_object();
-        m_vFeature = json::value_to<vFeature_t>( obj.at( "data" ) );
+        try {
+          boost::system::error_code jec;
+          json::value jv = boost::json::parse( message, jec );
+          json::object const& obj = jv.as_object();
 
-        {
-          BOOST_LOG_TRIVIAL(info) << "saving feature";
-          std::ofstream ofs( "viessmann.feature" );
-          ofs << message;
+          if ( obj.contains( "data" ) ) {
+            m_vFeature = json::value_to<vFeature_t>( obj.at( "data" ) );
+
+            if ( true ) {
+              BOOST_LOG_TRIVIAL(info) << "saving feature";
+              std::ofstream ofs( "viessmann.feature.json" );
+              ofs << message;
+            }
+          }
+          else {
+            //viessmann_error_t = json::value_to<vFeature_t>( obj );
+            const viessmann_error_t error( json::value_to<viessmann_error_t>( jv ) );
+            BOOST_LOG_TRIVIAL(warning) << "feature request error" << error.sErrorType << ',' << error.payload.sReason << ',' << error.payload.sMessage;
+          }
+
+          m_timerFeature.expires_after( boost::asio::chrono::seconds( 60 ) );
+          m_timerFeature.async_wait(
+            [this]( const boost::system::error_code& error ){
+              if ( error ) {
+                BOOST_LOG_TRIVIAL(error) << "feature timer error (no continue): " << error.message();
+              }
+              else {
+                get_features();
+              }
+            }
+          );
         }
+        catch ( const std::exception& e ) {
+          BOOST_LOG_TRIVIAL(error) << "get features std::exception: " << bStatus << ',' << ec << ',' << message;
+        }
+
       }
       else {
         BOOST_LOG_TRIVIAL(error) << "get features error: " << bStatus << ',' << ec << ',' << message;
@@ -334,6 +369,102 @@ void viessmann::get_features() {
     }
   );
 }
+
+void viessmann::set_timer_refresh_access_token() {
+
+  // starting from load file
+  //   no file, therefore no time -> refresh
+  //   file, no time remaining -> refresh
+  //   file, time remaining > 1 sec, refresh after difference in seconds
+  // refresh
+  //   refresh after full time delay
+
+  BOOST_LOG_TRIVIAL(trace) << "set_timer_refresh_access_token()";
+
+  const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+  if ( now > ( m_dtAccessTokenExpiry - boost::posix_time::time_duration( 0, 0, 1 ) ) ) {
+    refresh_access_token();
+  }
+  else {
+    const auto delta = m_dtAccessTokenExpiry - now;
+    // https://api.viessmann-climatesolutions.com/documentation/static/authentication
+    //m_dtAccessTokenExpiry = now + delta;
+    start_renewal_delay( delta );
+
+  }
+
+}
+
+void viessmann::set_refresh_access_token_full_duration() {
+  //BOOST_LOG_TRIVIAL(trace) << "set_refresh_access_token_full_duration()";
+
+  // https://api.viessmann-climatesolutions.com/documentation/static/authentication
+  const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+  const auto delta = boost::posix_time::time_duration( 0, 0, m_iam.nSecondsToExpiry - 11 );
+  m_dtAccessTokenExpiry = now + delta;
+  start_renewal_delay( delta );
+}
+
+void viessmann::start_renewal_delay( const boost::posix_time::time_duration delay ) {
+
+  BOOST_LOG_TRIVIAL(trace) << "start_renewal_delay " << delay.total_seconds() << " seconds";
+
+  // todo: check if timer active, shouldn't be
+  m_timerTokenRefresh.expires_after( boost::asio::chrono::seconds( delay.total_seconds() ) );
+  m_timerTokenRefresh.async_wait(
+    [this]( const boost::system::error_code& error ){
+      if ( error ) {
+        BOOST_LOG_TRIVIAL(error) << "feature timer error (no continue): " << error.message();
+      }
+      else {
+        refresh_access_token();
+      }
+    }
+  );
+}
+
+/*
+[2026-10-26 05:37:55.627561] [0x00007ffff7c47b00] [error]   get features std::exception: true,0,
+{
+  "viErrorId": "00-d56090f4d794f3d48146d9c7df0edbbe-c40744408ad47a1c-00",
+  "statusCode": 400,
+  "errorType": "DEVICE_COMMUNICATION_ERROR",
+  "message": "Device communication error",
+  "extendedPayload": {
+    "httpStatusCode": "NotFound",
+    "code": "404",
+    "reason": "GATEWAY_OFFLINE",
+    "message": "Not found"
+  }
+}
+
+
+
+[2026-10-26 09:41:22.758152] [0x00007ffff7c47b00] [trace]   set_timer_refresh_access_token()
+[2026-10-26 09:41:22.758157] [0x00007ffff7c47b00] [trace]   start_renewal_delay 3588 seconds
+[2026-10-26 09:41:22.758305] [0x00007ffff7c47b00] [error]   feature timer error (no continue): Operation canceled
+[2026-10-26 09:41:25.542722] [0x00007ffff7c47b00] [trace]   devices request: '/iot/v2/equipment/installations/3284872/gateways/7633301008871250/devices'
+[2026-10-26 09:41:26.631240] [0x00007ffff7c47b00] [trace]   features request: '/iot/v2/features/installations/3284872/gateways/7633301008871250/devices/0/features'
+[2026-10-26 09:41:28.627179] [0x00007ffff7c47b00] [info]    saving feature
+[2026-10-26 09:41:47.360175] [0x00007ffff7c47b00] [info]    127.0.0.1:34650 unknown request
+[2026-10-26 09:42:28.627816] [0x00007ffff7c47b00] [trace]   features request: '/iot/v2/features/installations/3284872/gateways/7633301008871250/devices/0/features'
+[2026-10-26 09:42:31.243946] [0x00007ffff7c47b00] [info]    saving feature
+
+
+{
+  "viErrorId": "00-e3dea55fa9edcbafbc7163df8732be1f-cff128404b94efb9-00",
+  "statusCode": 400,
+  "errorType": "DEVICE_COMMUNICATION_ERROR",
+  "message": "Device communication error",
+  "extendedPayload": {
+    "httpStatusCode": "NotFound",
+    "code": "404",
+    "reason": "GATEWAY_OFFLINE",
+    "message": "Not found"
+  }
+}
+
+*/
 
 void viessmann::refresh_access_token() {
 
@@ -370,21 +501,19 @@ void viessmann::refresh_access_token() {
 
           m_iam = json::value_to<iam_result_t>( jv );
 
-          // https://api.viessmann-climatesolutions.com/documentation/static/authentication
-          const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-          m_dtAccessTokenExpiry = now + boost::posix_time::time_duration( 0, 0, m_iam.nSecondsToExpiry - 10 );
+          set_refresh_access_token_full_duration();
 
           // For refresh tokens, the TTL is 15552000 seconds (180 days).
-          m_dtRefreshTokenExpiry = now + boost::gregorian::date_duration( 180 - 1 );
+          //m_dtRefreshTokenExpiry = now + boost::gregorian::date_duration( 180 - 1 );
 
           // https://api.viessmann-climatesolutions.com/documentation/static/authentication
           // For refresh tokens, the TTL is 15552000 seconds (180 days).
-          BOOST_LOG_TRIVIAL(info) << "token refresh=" << m_iam.sRefreshToken;
+          BOOST_LOG_TRIVIAL(info) << "refresh token=" << m_iam.sRefreshToken;
 
         }
         else {
           // fail
-          BOOST_LOG_TRIVIAL(error) << "token refresh status=" << bStatus << ", message=" << message;
+          BOOST_LOG_TRIVIAL(error) << "refresh token status=" << bStatus << ", message=" << message;
         }
       }
     );

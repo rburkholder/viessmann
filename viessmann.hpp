@@ -24,6 +24,7 @@
 #include <string>
 
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/steady_timer.hpp>
 
 #include <boost/serialization/version.hpp>
 #include <boost/serialization/split_member.hpp>
@@ -53,6 +54,7 @@ public:
   void set( fSave_t&& );
 
   void start();
+  void stop();
 
 protected:
 private:
@@ -81,14 +83,19 @@ private:
   fSave_t m_fSave;
   void save();
 
+  boost::asio::steady_timer m_timerFeature;
+  boost::asio::steady_timer m_timerTokenRefresh;
+
+  void set_refresh_access_token_full_duration();
+  void set_timer_refresh_access_token();
+  void start_renewal_delay( const boost::posix_time::time_duration seconds );
+
   template<typename Archive>
   void save( Archive& ar, const unsigned int version ) const {
 
     ar & m_iam.sTokenType;
     ar & m_iam.sAccessToken;
     ar & m_iam.sRefreshToken;
-    //ar & m_nSiteId;
-    //ar & m_sGatewaySerial;
 
     std::string dtAccessTokenExpiry( boost::posix_time::to_iso_string( m_dtAccessTokenExpiry ) );
     ar & dtAccessTokenExpiry;
@@ -103,8 +110,6 @@ private:
     ar & m_iam.sTokenType;
     ar & m_iam.sAccessToken;
     ar & m_iam.sRefreshToken;
-    //ar & m_nSiteId;
-    //ar & m_sGatewaySerial;
 
     std::string dtAccessTokenExpiry;
     ar & dtAccessTokenExpiry;

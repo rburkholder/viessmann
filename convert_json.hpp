@@ -37,3 +37,5 @@ value_t        tag_invoke( json::value_to_tag<value_t>, json::value const& jv );
 status_t       tag_invoke( json::value_to_tag<status_t>, json::value const& jv );
 property_t     tag_invoke( json::value_to_tag<property_t>, json::value const& jv );
 feature_t      tag_invoke( json::value_to_tag<feature_t>, json::value const& jv );
+extended_payload_t tag_invoke( json::value_to_tag<extended_payload_t>, json::value const& jv );
+viessmann_error_t  tag_invoke( json::value_to_tag<viessmann_error_t>, json::value const& jv );

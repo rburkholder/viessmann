@@ -110,3 +110,18 @@ struct feature_t {
 
 using vFeature_t = std::vector<feature_t>;
 
+struct extended_payload_t {
+  std::string sHttpStatusCode;
+  std::string sCode;
+  std::string sReason;
+  std::string sMessage;
+};
+
+struct viessmann_error_t {
+  std::string sViErrorId;
+  uint64_t nStatusCode;
+  std::string sErrorType;
+  std::string sMessage;
+  extended_payload_t payload;
+};
+

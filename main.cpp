@@ -105,7 +105,8 @@ int main(int argc, char **argv) {
   // Create and launch a signal handler coroutine
   net::co_spawn(
     net::make_strand( m_ioc ),
-    handle_signals( task_group ), net::detached
+    handle_signals( task_group ),
+    net::detached
   );
 
   viessmann viessmann( choices, m_ioc );

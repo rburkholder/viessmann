@@ -75,6 +75,9 @@ private:
   vDevice_t m_vDevice;
   vFeature_t m_vFeature;
 
+  std::string m_sInstallation;
+  std::string m_sDevice;
+
   boost::posix_time::ptime m_dtAccessTokenExpiry;
   boost::posix_time::ptime m_dtRefreshTokenExpiry;
 

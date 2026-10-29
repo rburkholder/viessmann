@@ -32,6 +32,8 @@
 
 #include <boost/log/trivial.hpp>
 
+#include <boost/lexical_cast.hpp>
+
 #include <boost/asio/strand.hpp>
 #include <boost/asio/ssl/context.hpp>
 
@@ -234,6 +236,7 @@ void viessmann::get_installations() {
           m_vInstallation = json::value_to<vInstallation_t>( obj.at( "data" ) );
           assert( 1 <= m_vInstallation.size() );
           //BOOST_LOG_TRIVIAL(info) << "site " << m_nSiteId << ": " << m_sSiteStatus;
+          m_sInstallation = boost::lexical_cast<std::string>( m_vInstallation[ 0 ].id );
 
           get_gateways();
         }
@@ -307,6 +310,8 @@ void viessmann::get_devices() {
         json::value jv = boost::json::parse( message, jec );
         json::object const& obj = jv.as_object();
         m_vDevice = json::value_to<vDevice_t>( obj.at( "data" ) );
+        assert( 0 < m_vDevice.size() );
+        m_sDevice = m_vDevice[ 0 ].id;
 
         get_features();
       }
@@ -341,7 +346,6 @@ void viessmann::get_features() {
           json::object const& obj = jv.as_object();
 
           if ( obj.contains( "data" ) ) {
-            m_vFeature = json::value_to<vFeature_t>( obj.at( "data" ) );
 
             if ( true ) {
               BOOST_LOG_TRIVIAL(info) << "saving feature";
@@ -349,7 +353,51 @@ void viessmann::get_features() {
               ofs << message;
             }
 
+            const std::string sPrefix = m_choices.mqtt.sTopic + '/' + m_sInstallation + '/' + m_sDevice + '/';
 
+            try {
+              const json::value jvData = obj.at( "data" ); // this works
+              const json::array objData = jvData.as_array();
+              //auto const begin( objData.begin() );
+              for ( const auto& feature: objData ) {
+                const auto result = feature.try_at( "properties" );
+                if ( result ) {
+                  std::string name( json::value_to<std::string_view>( feature.at( "feature" ) ) );
+                  std::replace( name.begin(), name.end(), '.', '/' );
+                  const json::value valResult = *result;
+                  if ( valResult.as_object().empty() ) {
+                    //BOOST_LOG_TRIVIAL(trace) << "feature: " << name << " is null";
+                  }
+                  else {
+                    //BOOST_LOG_TRIVIAL(trace)
+                    //  << sPrefix
+                    //  << name
+                    //  << ": '"
+                    //  << *result
+                    //  << "'"
+                    //  ;
+                    m_pMqtt->Publish(
+                      sPrefix + name,
+                      json::serialize( *result ),
+                      []( bool bStatus, int code ){
+                        if ( bStatus ); // ok
+                        else {
+                          BOOST_LOG_TRIVIAL(error) << "mqtt publish error: " << code;
+                        }
+                      } );
+                  }
+                }
+                else {
+                  BOOST_LOG_TRIVIAL(trace) << "feature: " << json::value_to<std::string_view>( feature.at( "feature" ) ) << " no properties";
+                }
+
+              }
+            }
+            catch ( const std::exception& e ) {
+              BOOST_LOG_TRIVIAL(debug) << "decoding error: " << e.what();
+            }
+/*
+            m_vFeature = json::value_to<vFeature_t>( obj.at( "data" ) );
             json::object objMqtt;
 
             for ( const feature_t& feature: m_vFeature ) {
@@ -404,7 +452,7 @@ void viessmann::get_features() {
                   BOOST_LOG_TRIVIAL(error) << "mqtt publish error: " << code;
                 }
               } );
-
+*/
           }
           else {
             //viessmann_error_t = json::value_to<vFeature_t>( obj );

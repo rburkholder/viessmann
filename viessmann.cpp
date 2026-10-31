@@ -360,35 +360,62 @@ void viessmann::get_features() {
               const json::array objData = jvData.as_array();
               //auto const begin( objData.begin() );
               for ( const auto& feature: objData ) {
-                const auto result = feature.try_at( "properties" );
-                if ( result ) {
-                  std::string name( json::value_to<std::string_view>( feature.at( "feature" ) ) );
-                  std::replace( name.begin(), name.end(), '.', '/' );
-                  const json::value valResult = *result;
-                  if ( valResult.as_object().empty() ) {
-                    //BOOST_LOG_TRIVIAL(trace) << "feature: " << name << " is null";
+
+                std::string name( json::value_to<std::string_view>( feature.at( "feature" ) ) );
+                std::replace( name.begin(), name.end(), '.', '/' );
+
+                // check if timestamp is missing or different than last time
+                bool bGetProperties( true );
+                const auto resultTimeStamp = feature.try_at( "timestamp" );
+                if ( resultTimeStamp ) {
+                  json::string jsTimeStamp = json::value_to<json::string>( *resultTimeStamp );
+                  jsTimeStamp.pop_back(); // remove the Z
+                  const boost::posix_time::ptime dt =
+                    boost::posix_time::from_iso_extended_string( jsTimeStamp.c_str() );
+                  mapTimeStamp_t::iterator iter = m_mapTimeStamp.find( name );
+                  if ( m_mapTimeStamp.end() == iter ) {
+                    m_mapTimeStamp.emplace( name, dt );
                   }
                   else {
-                    //BOOST_LOG_TRIVIAL(trace)
-                    //  << sPrefix
-                    //  << name
-                    //  << ": '"
-                    //  << *result
-                    //  << "'"
-                    //  ;
-                    m_pMqtt->Publish(
-                      sPrefix + name,
-                      json::serialize( *result ),
-                      []( bool bStatus, int code ){
-                        if ( bStatus ); // ok
-                        else {
-                          BOOST_LOG_TRIVIAL(error) << "mqtt publish error: " << code;
-                        }
-                      } );
+                    if ( dt == iter->second ) {
+                      bGetProperties = false;
+                    }
+                    else {
+                      iter->second = dt;
+                    }
                   }
                 }
-                else {
-                  BOOST_LOG_TRIVIAL(trace) << "feature: " << json::value_to<std::string_view>( feature.at( "feature" ) ) << " no properties";
+
+                // send properties if timestamp is different or missing
+                if ( bGetProperties ) {
+                  const auto resultProperties = feature.try_at( "properties" );
+                  if ( resultProperties ) {
+                    const json::value valResult = *resultProperties;
+                    if ( valResult.as_object().empty() ) {
+                      //BOOST_LOG_TRIVIAL(trace) << "feature: " << name << " is null";
+                    }
+                    else {
+                      //BOOST_LOG_TRIVIAL(trace)
+                      //  << sPrefix
+                      //  << name
+                      //  << ": '"
+                      //  << *resultProperties
+                      //  << "'"
+                      //  ;
+                      m_pMqtt->Publish(
+                        sPrefix + name,
+                        json::serialize( *resultProperties ),
+                        []( bool bStatus, int code ){
+                          if ( bStatus ); // ok
+                          else {
+                            BOOST_LOG_TRIVIAL(error) << "mqtt publish error: " << code;
+                          }
+                        } );
+                    }
+                  }
+                  else {
+                    BOOST_LOG_TRIVIAL(trace) << "feature: " << json::value_to<std::string_view>( feature.at( "feature" ) ) << " no properties";
+                  }
                 }
 
               }

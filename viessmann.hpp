@@ -22,6 +22,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -80,6 +81,9 @@ private:
 
   boost::posix_time::ptime m_dtAccessTokenExpiry;
   boost::posix_time::ptime m_dtRefreshTokenExpiry;
+
+  using mapTimeStamp_t = std::unordered_map<std::string, boost::posix_time::ptime>;
+  mapTimeStamp_t m_mapTimeStamp;
 
   void refresh_access_token();
   void get_installations();

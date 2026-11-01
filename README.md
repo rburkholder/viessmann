@@ -1,5 +1,16 @@
-# viessmann
-connect to viessmann api for boiler data
+## viessmann api access
+
+* connect to viessmann api for residential boiler data
+* extracts 'properties' and sends each feature as an mqtt topic
+* has self-bootstrapping web server for initial api authentication
+
+## installation
+
+* install / build [repertory](https://github.com/rburkholder/repertory) for mqtt and anomalon libraries
+* install [libs-build](https://github.com/rburkholder/libs-build) to build boost & sodium libraries
+* install sol2 and luajit
+
+## configuration
 
 ```options
 # viessmann.cfg
@@ -26,3 +37,7 @@ auth_redirect = http://localhost:4200/auth.lua
 api_fqdn = api.viessmann-climatesolutions.com
 api_port = 443
 ```
+
+## notes
+
+* See [viessmann.lua](https://github.com/rburkholder/apparition/blob/master/var/script/viessmann.lua) for example decoder of properties.

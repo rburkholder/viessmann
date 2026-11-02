@@ -636,25 +636,29 @@ void viessmann::refresh_access_token() {
       }
     , [this]( bool bStatus, int ec, const std::string& message ){
         if ( bStatus ) {
+          try {
+            boost::system::error_code jec;
+            json::value jv = boost::json::parse( message, jec );
 
-          boost::system::error_code jec;
-          json::value jv = boost::json::parse( message, jec );
+            m_iam = json::value_to<iam_result_t>( jv );
 
-          m_iam = json::value_to<iam_result_t>( jv );
+            set_refresh_access_token_full_duration();
 
-          set_refresh_access_token_full_duration();
+            // For refresh tokens, the TTL is 15552000 seconds (180 days).
+            //m_dtRefreshTokenExpiry = now + boost::gregorian::date_duration( 180 - 1 );
 
-          // For refresh tokens, the TTL is 15552000 seconds (180 days).
-          //m_dtRefreshTokenExpiry = now + boost::gregorian::date_duration( 180 - 1 );
-
-          // https://api.viessmann-climatesolutions.com/documentation/static/authentication
-          // For refresh tokens, the TTL is 15552000 seconds (180 days).
-          //BOOST_LOG_TRIVIAL(info) << "refresh token=" << m_iam.sRefreshToken;
-
+            // https://api.viessmann-climatesolutions.com/documentation/static/authentication
+            // For refresh tokens, the TTL is 15552000 seconds (180 days).
+            //BOOST_LOG_TRIVIAL(info) << "refresh token=" << m_iam.sRefreshToken;
+          }
+          catch ( const std::exception& e ) {
+            BOOST_LOG_TRIVIAL(error) << "refresh token status(1)=" << bStatus << ", message=" << message;
+            BOOST_LOG_TRIVIAL(error) << "refresh token status(1)=" << e.what();
+          }
         }
         else {
           // fail
-          BOOST_LOG_TRIVIAL(error) << "refresh token status=" << bStatus << ", message=" << message;
+          BOOST_LOG_TRIVIAL(error) << "refresh token status(2)=" << bStatus << ", message=" << message;
         }
       }
     );

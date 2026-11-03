@@ -97,6 +97,8 @@ private:
   boost::asio::steady_timer m_timerFeature;
   boost::asio::steady_timer m_timerTokenRefresh;
 
+  void start_timer_get_features();
+
   void set_refresh_access_token_full_duration();
   void set_timer_refresh_access_token();
   void start_renewal_delay( const boost::posix_time::time_duration seconds );

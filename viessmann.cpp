@@ -245,7 +245,7 @@ void viessmann::get_installations() {
           BOOST_LOG_TRIVIAL(error) << "get_installations error: " << e.what();
         }
       }
-      else {
+      else [[unlikely]] {
         BOOST_LOG_TRIVIAL(error) << "get installations error: " << bStatus << ',' << ec << ',' << message;
       }
     }
@@ -276,7 +276,7 @@ void viessmann::get_gateways() {
 
         get_devices();
       }
-      else {
+      else [[unlikely]] {
         BOOST_LOG_TRIVIAL(error) << "get gateways error: " << bStatus << ',' << ec << ',' << message;
       }
     }
@@ -315,7 +315,7 @@ void viessmann::get_devices() {
 
         get_features();
       }
-      else {
+      else [[unlikely]] {
         BOOST_LOG_TRIVIAL(error) << "get devices error: " << bStatus << ',' << ec << ',' << message;
       }
     }
@@ -333,7 +333,7 @@ void viessmann::get_features() {
           "/iot/v2/features/installations/{}/gateways/{}/devices/{}/features",
           m_vInstallation[0].id, m_vGateway[ 0 ].serial, "0" )
       );
-      BOOST_LOG_TRIVIAL(trace) << "features request: '" << target << "'";
+      //BOOST_LOG_TRIVIAL(trace) << "features request: '" << target << "'";
       pRequest->target( target );
       pRequest->set( "Authorization", m_iam.sTokenType + " " + m_iam.sAccessToken );
     }
@@ -348,7 +348,7 @@ void viessmann::get_features() {
           if ( obj.contains( "data" ) ) {
 
             if ( true ) {
-              BOOST_LOG_TRIVIAL(info) << "saving feature";
+              //BOOST_LOG_TRIVIAL(info) << "saving feature";
               std::ofstream ofs( "viessmann.feature.json" );
               ofs << message;
             }
@@ -407,13 +407,13 @@ void viessmann::get_features() {
                         json::serialize( *resultProperties ),
                         []( bool bStatus, int code ){
                           if ( bStatus ); // ok
-                          else {
+                          else [[unlikely]] {
                             BOOST_LOG_TRIVIAL(error) << "mqtt publish error: " << code;
                           }
                         } );
                     }
                   }
-                  else {
+                  else [[unlikely]] {
                     BOOST_LOG_TRIVIAL(trace) << "feature: " << json::value_to<std::string_view>( feature.at( "feature" ) ) << " no properties";
                   }
                 }
@@ -423,7 +423,7 @@ void viessmann::get_features() {
             catch ( const std::exception& e ) {
               BOOST_LOG_TRIVIAL(debug) << "decoding error: " << e.what();
             }
-/*
+            /*
             m_vFeature = json::value_to<vFeature_t>( obj.at( "data" ) );
             json::object objMqtt;
 
@@ -479,7 +479,7 @@ void viessmann::get_features() {
                   BOOST_LOG_TRIVIAL(error) << "mqtt publish error: " << code;
                 }
               } );
-*/
+          */
           }
           else {
             //viessmann_error_t = json::value_to<vFeature_t>( obj );
@@ -487,17 +487,7 @@ void viessmann::get_features() {
             BOOST_LOG_TRIVIAL(warning) << "feature request error" << error.sErrorType << ',' << error.payload.sReason << ',' << error.payload.sMessage;
           }
 
-          m_timerFeature.expires_after( boost::asio::chrono::seconds( 60 ) );
-          m_timerFeature.async_wait(
-            [this]( const boost::system::error_code& error ){
-              if ( error ) {
-                BOOST_LOG_TRIVIAL(error) << "feature timer error (no continue): " << error.message();
-              }
-              else {
-                get_features();
-              }
-            }
-          );
+          start_timer_get_features();
         }
         catch ( const std::exception& e ) {
           BOOST_LOG_TRIVIAL(error) << "get features std::exception: " << bStatus << ',' << ec << ',' << message;
@@ -506,6 +496,28 @@ void viessmann::get_features() {
       }
       else {
         BOOST_LOG_TRIVIAL(error) << "get features error: " << bStatus << ',' << ec << ',' << message;
+        switch ( ec ) {
+          case 1:
+            start_timer_get_features();  // os.on_read:The socket was closed due to a timeout
+            break;
+          default:
+            // decode additional errors and conditionally retry as needed
+            break;
+        }
+      }
+    }
+  );
+}
+
+void viessmann::start_timer_get_features() {
+  m_timerFeature.expires_after( boost::asio::chrono::seconds( 60 ) );
+  m_timerFeature.async_wait(
+    [this]( const boost::system::error_code& error ){
+      if ( error ) [[unlikely]] {
+        BOOST_LOG_TRIVIAL(error) << "feature timer error (no continue): " << error.message();
+      }
+      else {
+        get_features();
       }
     }
   );

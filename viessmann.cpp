@@ -446,6 +446,9 @@ void viessmann::get_features() {
           case 1:
             start_timer_get_features();  // os.on_read:The socket was closed due to a timeout
             break;
+          case 104:
+            start_timer_get_features();  // os.on_handshake: (104) Connection reset by peer
+            break;
           default:
             // decode additional errors and conditionally retry as needed
             break;

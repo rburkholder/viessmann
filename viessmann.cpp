@@ -423,63 +423,6 @@ void viessmann::get_features() {
             catch ( const std::exception& e ) {
               BOOST_LOG_TRIVIAL(debug) << "decoding error: " << e.what();
             }
-            /*
-            m_vFeature = json::value_to<vFeature_t>( obj.at( "data" ) );
-            json::object objMqtt;
-
-            for ( const feature_t& feature: m_vFeature ) {
-              try {
-                switch ( feature.property.value.type ) {
-                  case value_type_t::boolean:
-                    {
-                      bool b( std::get<bool>( feature.property.value.value ) );
-                      objMqtt[ feature.sName ] = { { "value", b } };
-                      BOOST_LOG_TRIVIAL(trace) << feature.sName << ": " << b;
-                    }
-                    break;
-                  case value_type_t::int_:
-                    {
-                      int64_t int_( std::get<int64_t>( feature.property.value.value ) );
-                      objMqtt[ feature.sName ] = { { "value", int_ }, { "units", feature.property.value.unit } };
-                      BOOST_LOG_TRIVIAL(trace) << feature.sName << ": " << int_ << ' ' << feature.property.value.unit;
-                    }
-                    break;
-                  case value_type_t::dbl_:
-                    {
-                      double dbl( std::get<double>( feature.property.value.value ) );
-                      objMqtt[ feature.sName ] = { { "value", dbl }, { "units", feature.property.value.unit } };
-                      BOOST_LOG_TRIVIAL(trace) << feature.sName << ": " << dbl << ' ' << feature.property.value.unit;
-                    }
-                    break;
-                  case value_type_t::string:
-                    {
-                      const std::string& s( std::get<std::string>( feature.property.value.value ) );
-                      objMqtt[ feature.sName ] = { { "value", s } };
-                      BOOST_LOG_TRIVIAL(trace) << feature.sName << ": \"" << s << '"';
-                    }
-                    break;
-                  default:
-                    //BOOST_LOG_TRIVIAL(trace) << feature.sName << "='" << (int)feature.property.value.type << "' " << feature.property.value.unit;
-                    break;
-                }
-              }
-              catch ( const std::exception& e ) {
-                BOOST_LOG_TRIVIAL(error) << "output error (" << feature.sName << "): " << e.what();
-              }
-            }
-
-            BOOST_LOG_TRIVIAL(trace) << "json: " << json::serialize( objMqtt );
-
-            m_pMqtt->Publish(
-              m_choices.mqtt.sTopic,
-              json::serialize( objMqtt ),
-              []( bool bStatus, int code ){
-                if ( bStatus ); // ok
-                else {
-                  BOOST_LOG_TRIVIAL(error) << "mqtt publish error: " << code;
-                }
-              } );
-          */
           }
           else {
             //viessmann_error_t = json::value_to<vFeature_t>( obj );

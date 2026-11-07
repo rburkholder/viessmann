@@ -484,7 +484,10 @@ void viessmann::get_features() {
           else {
             //viessmann_error_t = json::value_to<vFeature_t>( obj );
             const viessmann_error_t error( json::value_to<viessmann_error_t>( jv ) );
-            BOOST_LOG_TRIVIAL(warning) << "feature request error" << error.sErrorType << ',' << error.payload.sReason << ',' << error.payload.sMessage;
+            BOOST_LOG_TRIVIAL(warning)
+              << "feature request error '" << error.sErrorType << "',"
+              << error.payload.sHttpStatusCode << ','
+              << error.payload.sReason << ",'" << error.payload.sMessage << "'";
           }
 
           start_timer_get_features();
@@ -560,7 +563,7 @@ void viessmann::set_refresh_access_token_full_duration() {
 
 void viessmann::start_renewal_delay( const boost::posix_time::time_duration delay ) {
 
-  BOOST_LOG_TRIVIAL(trace) << "start_renewal_delay " << delay.total_seconds() << " seconds";
+  //BOOST_LOG_TRIVIAL(trace) << "start_renewal_delay " << delay.total_seconds() << " seconds";
 
   // todo: check if timer active, shouldn't be
   m_timerTokenRefresh.expires_after( boost::asio::chrono::seconds( delay.total_seconds() ) );
@@ -590,33 +593,17 @@ void viessmann::start_renewal_delay( const boost::posix_time::time_duration dela
     "message": "Not found"
   }
 }
-
-
-
-[2026-10-26 09:41:22.758152] [0x00007ffff7c47b00] [trace]   set_timer_refresh_access_token()
-[2026-10-26 09:41:22.758157] [0x00007ffff7c47b00] [trace]   start_renewal_delay 3588 seconds
-[2026-10-26 09:41:22.758305] [0x00007ffff7c47b00] [error]   feature timer error (no continue): Operation canceled
-[2026-10-26 09:41:25.542722] [0x00007ffff7c47b00] [trace]   devices request: '/iot/v2/equipment/installations/3284872/gateways/7633301008871250/devices'
-[2026-10-26 09:41:26.631240] [0x00007ffff7c47b00] [trace]   features request: '/iot/v2/features/installations/3284872/gateways/7633301008871250/devices/0/features'
-[2026-10-26 09:41:28.627179] [0x00007ffff7c47b00] [info]    saving feature
-[2026-10-26 09:41:47.360175] [0x00007ffff7c47b00] [info]    127.0.0.1:34650 unknown request
-[2026-10-26 09:42:28.627816] [0x00007ffff7c47b00] [trace]   features request: '/iot/v2/features/installations/3284872/gateways/7633301008871250/devices/0/features'
-[2026-10-26 09:42:31.243946] [0x00007ffff7c47b00] [info]    saving feature
-
-
-{
-  "viErrorId": "00-e3dea55fa9edcbafbc7163df8732be1f-cff128404b94efb9-00",
+[2026-11-07 04:19:35.710637] [0x00007ffff7c47b00] [error]   get features std::exception: true,0,{
+  "viErrorId": "00-aabe7664bdb5758056a31a47a170a492-82b8e14cb4d69c38-00",
   "statusCode": 400,
   "errorType": "DEVICE_COMMUNICATION_ERROR",
   "message": "Device communication error",
   "extendedPayload": {
-    "httpStatusCode": "NotFound",
-    "code": "404",
-    "reason": "GATEWAY_OFFLINE",
-    "message": "Not found"
+    "httpStatusCode": "GatewayTimeout",
+    "message": "The delegate executed asynchronously through TimeoutPolicy did not complete within the timeout.",
+    "code": "unknown"
   }
 }
-
 */
 
 void viessmann::refresh_access_token() {

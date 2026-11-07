@@ -115,8 +115,8 @@ using vFeature_t = std::vector<feature_t>;
 struct extended_payload_t {
   std::string sHttpStatusCode;
   std::string sCode;
-  std::string sReason;
   std::string sMessage;
+  std::string sReason; // optional
 };
 
 struct viessmann_error_t {

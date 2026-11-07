@@ -242,11 +242,15 @@ feature_t      tag_invoke( json::value_to_tag<feature_t>, json::value const& jv 
 
 extended_payload_t tag_invoke( json::value_to_tag<extended_payload_t>, json::value const& jv ) {
   json::object const& obj = jv.as_object();
+  std::string sReason ;
+  if ( obj.contains( "reason" ) ) {
+    sReason = std::move( json::value_to<std::string>( obj.at( "reason" ) ) );
+  }
   return extended_payload_t {
     json::value_to<std::string>( obj.at( "httpStatusCode" ) ),
     json::value_to<std::string>( obj.at( "code" ) ),
-    json::value_to<std::string>( obj.at( "reason" ) ),
-    json::value_to<std::string>( obj.at( "message" ) )
+    json::value_to<std::string>( obj.at( "message" ) ),
+    std::move( sReason )
   };
 }
 

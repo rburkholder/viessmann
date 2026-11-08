@@ -443,11 +443,9 @@ void viessmann::get_features() {
       else {
         BOOST_LOG_TRIVIAL(error) << "get features error: " << bStatus << ',' << ec << ',' << message;
         switch ( ec ) {
-          case 1:
-            start_timer_get_features();  // os.on_read:The socket was closed due to a timeout
-            break;
-          case 104:
-            start_timer_get_features();  // os.on_handshake: (104) Connection reset by peer
+          case   1:  // os.on_read:The socket was closed due to a timeout
+          case 104:  // os.on_handshake: (104) Connection reset by peer
+            start_timer_get_features();
             break;
           default:
             // decode additional errors and conditionally retry as needed
